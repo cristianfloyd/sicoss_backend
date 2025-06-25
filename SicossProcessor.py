@@ -2,8 +2,9 @@ import time
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Any, Union
-from datetime import datetime, date
 import logging
+
+from pandas import DataFrame
 
 import SicossProcessorTester
 
@@ -52,6 +53,9 @@ class SicossProcessor:
         config = self._inicializar_configuracion(datos)
         total = self._inicializar_totales()
 
+        if check_sin_activo:
+            logger.info("check_sin_activo != 0")
+
         if df_legajos.empty:
             logger.warning("⚠️ No hay legajos para procesar")
             return total
@@ -67,7 +71,7 @@ class SicossProcessor:
             df_legajos, df_obra_social
         )
 
-        # 📊 PASO 3: Procesar situaciones (normal vs retro)
+        # 📊 PASO 3: Procesar situaciones (normal vs. retro)
         logger.info("📊 PASO 3: Procesando situaciones...")
         if not retro:
             df_legajos = self._procesar_situaciones_normales_pandas(
@@ -163,6 +167,8 @@ class SicossProcessor:
     def _inicializar_configuracion(self, datos: Dict) -> Dict:
         """
         🔧 HELPER: Inicializa configuración desde datos
+        :param datos:
+        :return:
         """
         return {
             "tope_jubilatorio_patronal": datos.get("TopeJubilatorioPatronal", 0.0),
@@ -967,7 +973,7 @@ class SicossProcessor:
             f"{legajo.get('conyugue', 0)}"
             f"{self._llenar_importes(legajo.get('hijos', 0), 2)}"
             f"{self._llenar_importes(legajo.get('codigosituacion', 0), 2)}"
-            # ... resto del formateo según especificaciones
+            # ... Resto del formateo según especificaciones
         )
 
     def _llenar_blancos(self, texto: str, longitud: int) -> str:
@@ -1197,7 +1203,7 @@ class SicossProcessor:
 
     def _aplicar_topes_personales_pandas(
         self, df_legajos: pd.DataFrame, config: Dict
-    ) -> pd.DataFrame:
+    ) -> DataFrame | None:
         """
         🎯 Aplica topes personales (lógica compleja del PHP líneas 1520-1570)
         """
@@ -1671,61 +1677,61 @@ class SicossProcessor:
         return df_legajos
 
 
-# 🚀 FUNCIÓN PRINCIPAL PARA INTEGRACIÓN
-def procesar_sicoss_con_extractor(
-    config_sicoss: Dict, per_anoct: int, per_mesct: int
-) -> Dict:
-    """
-    🎯 FUNCIÓN DE INTEGRACIÓN COMPLETA
+    # 🚀 FUNCIÓN PRINCIPAL PARA INTEGRACIÓN
+    def procesar_sicoss_con_extractor(
+        config_sicoss: Dict, per_anoct: int, per_mesct: int
+    ) -> Dict:
+        """
+        🎯 FUNCIÓN DE INTEGRACIÓN COMPLETA
 
-    Combina SicossDataExtractor + SicossProcessor refactorizado
-    """
-    logger.info("🚀 Iniciando procesamiento SICOSS completo...")
+        Combina SicossDataExtractor + SicossProcessor refactorizado
+        """
+        logger.info("🚀 Iniciando procesamiento SICOSS completo...")
 
-    try:
-        # 1. Extraer datos con SicossDataExtractor
-        from SicossDataExtractor import (
-            DatabaseConnection,
-            SicossDataExtractor,
-            SicossConfig,
-        )
+        try:
+            # 1. Extraer datos con SicossDataExtractor
+            from SicossDataExtractor import (
+                DatabaseConnection,
+                SicossDataExtractor,
+                SicossConfig,
+            )
 
-        # Crear configuración
-        config = SicossConfig(
-            tope_jubilatorio_patronal=config_sicoss["TopeJubilatorioPatronal"],
-            tope_jubilatorio_personal=config_sicoss["TopeJubilatorioPersonal"],
-            tope_otros_aportes_personales=config_sicoss["TopeOtrosAportesPersonal"],
-            trunca_tope=bool(config_sicoss["truncaTope"]),
-        )
+            # Crear configuración
+            config = SicossConfig(
+                tope_jubilatorio_patronal=config_sicoss["TopeJubilatorioPatronal"],
+                tope_jubilatorio_personal=config_sicoss["TopeJubilatorioPersonal"],
+                tope_otros_aportes_personales=config_sicoss["TopeOtrosAportesPersonal"],
+                trunca_tope=bool(config_sicoss["truncaTope"]),
+            )
 
-        # Extraer datos
-        db = DatabaseConnection("database.ini")
-        extractor = SicossDataExtractor(db)
+            # Extraer datos
+            db = DatabaseConnection("database.ini")
+            extractor = SicossDataExtractor(db)
 
-        datos_extraidos = extractor.extraer_datos_completos(
-            config=config, per_anoct=per_anoct, per_mesct=per_mesct
-        )
+            datos_extraidos = extractor.extraer_datos_completos(
+                config=config, per_anoct=per_anoct, per_mesct=per_mesct
+            )
 
-        # 2. Procesar con SicossProcessor refactorizado
-        procesador = SicossProcessor()
+            # 2. Procesar con SicossProcessor refactorizado
+            procesador = SicossProcessor()
 
-        resultado = procesador.procesa_sicoss_dataframes(
-            df_legajos=datos_extraidos["df_legajos"],
-            df_conceptos=datos_extraidos["df_conceptos"],
-            df_otra_actividad=datos_extraidos["df_otra_actividad"],
-            datos=config_sicoss,
-            per_anoct=per_anoct,
-            per_mesct=per_mesct,
-            nombre_arch=f"sicoss_{per_anoct}_{per_mesct:02d}",
-            retornar_datos=True,
-        )
+            resultado = procesador.procesa_sicoss_dataframes(
+                df_legajos=datos_extraidos["df_legajos"],
+                df_conceptos=datos_extraidos["df_conceptos"],
+                df_otra_actividad=datos_extraidos["df_otra_actividad"],
+                datos=config_sicoss,
+                per_anoct=per_anoct,
+                per_mesct=per_mesct,
+                nombre_arch=f"sicoss_{per_anoct}_{per_mesct:02d}",
+                retornar_datos=True,
+            )
 
-        logger.info("✅ Procesamiento SICOSS completo exitoso!")
-        return resultado
+            logger.info("✅ Procesamiento SICOSS completo exitoso!")
+            return resultado
 
-    except Exception as e:
-        logger.error(f"❌ Error en procesamiento completo: {e}")
-        raise
+        except Exception as e:
+            logger.error(f"❌ Error en procesamiento completo: {e}")
+            raise
 
 
 # 🧪 SCRIPT DE PRUEBA

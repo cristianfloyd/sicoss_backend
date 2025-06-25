@@ -19,6 +19,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+SicossOptimizado.php
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -27,6 +28,7 @@ wheels/
 database.ini
 .env
 .venv
+.venv*
 env/
 venv/
 ENV/

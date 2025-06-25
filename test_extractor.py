@@ -5,17 +5,40 @@ Script de prueba para validar el SicossDataExtractor
 """
 
 from SicossDataExtractor import *
+import configparser
+from mapuche_config import create_mapuche_config
 import time
 
 def test_extractor_legajo_unico():
     """Prueba el extractor con un legajo específico"""
     print("=== TEST: EXTRACTOR CON LEGAJO ÚNICO ===")
     
-    # Configuración para pruebas
+    # Leer el archivo INI
+    config_ini = configparser.ConfigParser()
+    config_ini.read('database.ini')
+    
+    # Extraer los parámetros de la sección [postgresql]
+    db_params = config_ini['postgresql']
+    
+    connection_params = {
+        'host': db_params.get('host', 'localhost'),
+        'database': db_params.get('database', ''),
+        'user': db_params.get('user', ''),
+        'password': db_params.get('password', ''),
+        'port': db_params.get('port', '5432')
+    }
+
+    # Crear instancia de MapucheConfig
+    mapuche_config = create_mapuche_config(connection_params)
+
+    tope_jubilatorio_patronal = float(mapuche_config.get_topes_jubilatorio_patronal() or 0)
+    tope_jubilatorio_personal = float(mapuche_config.get_topes_jubilatorio_personal() or 0)
+    tope_otros_aportes_personales = float(mapuche_config.get_topes_otros_aportes_personales() or 0)
+    # Crear la configuración para pruebas
     config = SicossConfig(
-        tope_jubilatorio_patronal=800000.0,
-        tope_jubilatorio_personal=600000.0,
-        tope_otros_aportes_personales=700000.0,
+        tope_jubilatorio_patronal,
+        tope_jubilatorio_personal,
+        tope_otros_aportes_personales,
         trunca_tope=True,
         check_lic=False,
         asignacion_familiar=False
@@ -32,9 +55,9 @@ def test_extractor_legajo_unico():
         
         datos = extractor.extraer_datos_completos(
             config=config,
-            per_anoct=2024,
-            per_mesct=12,
-            nro_legajo=10001  # Cambiar por un legajo que exista
+            per_anoct=2025,
+            per_mesct=6,
+            nro_legajo=110830  # Cambiar por un legajo que exista
         )
         
         tiempo_extraccion = time.time() - inicio
@@ -84,10 +107,33 @@ def test_extractor_multiples_legajos():
     """Prueba el extractor con múltiples legajos"""
     print("\n=== TEST: EXTRACTOR CON MÚLTIPLES LEGAJOS ===")
     
+    # Leer el archivo INI
+    config_ini = configparser.ConfigParser()
+    config_ini.read('database.ini')
+    
+    # Extraer los parámetros de la sección [postgresql]
+    db_params = config_ini['postgresql']
+    
+    connection_params = {
+        'host': db_params.get('host', 'localhost'),
+        'database': db_params.get('database', ''),
+        'user': db_params.get('user', ''),
+        'password': db_params.get('password', ''),
+        'port': db_params.get('port', '5432')
+    }
+
+    # Crear instancia de MapucheConfig
+    mapuche_config = create_mapuche_config(connection_params)
+
+    tope_jubilatorio_patronal = float(mapuche_config.get_topes_jubilatorio_patronal() or 0)
+    tope_jubilatorio_personal = float(mapuche_config.get_topes_jubilatorio_personal() or 0)
+    tope_otros_aportes_personales = float(mapuche_config.get_topes_otros_aportes_personales() or 0)
+
+
     config = SicossConfig(
-        tope_jubilatorio_patronal=800000.0,
-        tope_jubilatorio_personal=600000.0,
-        tope_otros_aportes_personales=700000.0,
+        tope_jubilatorio_patronal,
+        tope_jubilatorio_personal,
+        tope_otros_aportes_personales,
         trunca_tope=True
     )
     
@@ -101,8 +147,8 @@ def test_extractor_multiples_legajos():
         
         datos = extractor.extraer_datos_completos(
             config=config,
-            per_anoct=2024,
-            per_mesct=12,
+            per_anoct=2025,
+            per_mesct=6,
             nro_legajo=None  # Todos los legajos
         )
         
@@ -113,14 +159,14 @@ def test_extractor_multiples_legajos():
             print("⚠️ No se encontraron legajos para procesar")
             return False
         
-        # Limitar a los primeros 100 legajos para prueba
-        if len(datos['legajos']) > 100:
-            print(f"🔧 Limitando a 100 legajos (de {len(datos['legajos'])} encontrados)")
+        # Limitar a los primeros 1000 legajos para prueba
+        if len(datos['legajos']) > 1000:
+            print(f"🔧 Limitando a 1000 legajos (de {len(datos['legajos'])} encontrados)")
             for key in datos:
                 if not datos[key].empty:
                     if key == 'legajos':
-                        legajos_muestra = datos[key].head(100)['nro_legaj'].tolist()
-                        datos[key] = datos[key].head(100)
+                        legajos_muestra = datos[key].head(1000)['nro_legaj'].tolist()
+                        datos[key] = datos[key].head(1000)
                     else:
                         datos[key] = datos[key][datos[key]['nro_legaj'].isin(legajos_muestra)]
         
