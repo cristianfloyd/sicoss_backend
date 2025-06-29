@@ -291,7 +291,7 @@ class SicossDataExtractor:
     def extraer_otra_actividad(self, legajos: List[int]) -> pd.DataFrame:
         """Extrae datos de otra actividad"""
         if not legajos:
-            return pd.DataFrame(columns=['nro_legaj', 'importebrutootraactividad', 'importesacotraactividad'])
+            return pd.DataFrame(columns=['nro_legaj', 'importebrutootraactividad', 'importesacotraactividad']) #type: ignore
         
         query = self.sql_queries.get_otra_actividad_query(legajos)
         return self.db.execute_query(query)
@@ -650,8 +650,8 @@ def main():
         # Extraer datos
         datos_extraidos = extractor.extraer_datos_completos(
             config=config,
-            per_anoct=2024,
-            per_mesct=12,
+            per_anoct=2025,
+            per_mesct=6,
             nro_legajo=None  # Todos los legajos
         )
         

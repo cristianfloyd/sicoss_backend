@@ -1,24 +1,33 @@
 import psycopg2
-from typing import Any, Optional, Dict
+from psycopg2.extensions import connection as PgConnection, cursor as PgCursor
+from typing import Any, Optional, Dict, TypedDict
 from datetime import datetime
 import logging
+
+class ConnectionParams(TypedDict):
+    host: str
+    database: str
+    user: str
+    password: str
+    port: str
 
 class MapucheConfig:
     """
     Clase de configuración para el sistema Mapuche que replica la funcionalidad 
     de MapucheConfig.php en Python
     """
-    
-    def __init__(self, parametros_conexion: Dict[str, str]):
+    def __init__(self, parametros_conexion: ConnectionParams):
         """
         Inicializa la configuración con parámetros de conexión a la base de datos Mapuche
         
         Args:
             connection_params: Diccionario con host, database, user, password, port
-            :type parametros_conexion: Dict[str, str]
+            :type parametros_conexion: ConnectionParams
         """
         self.connection_params = parametros_conexion
         self.logger = logging.getLogger(__name__)
+
+
     
     def get_parametro_rrhh(self, section: str, parameter: str, default: Any = None) -> Optional[str]:
         """
@@ -38,6 +47,8 @@ class MapucheConfig:
             FROM mapuche.rrhhini 
             WHERE nombre_seccion = %s AND nombre_parametro = %s
             """
+            conn: PgConnection
+            cursor: PgCursor
             
             with psycopg2.connect(**self.connection_params) as conn:
                 with conn.cursor() as cursor:
@@ -63,7 +74,7 @@ class MapucheConfig:
             
             with psycopg2.connect(**self.connection_params) as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute(query)
+                    cursor.execute(query) 
                     result = cursor.fetchone()
                     return result[0] if result else None
                     
@@ -101,7 +112,7 @@ class MapucheConfig:
         try:
             query = "SELECT per_anoct, per_mesct FROM mapuche.dh99 LIMIT 1"
             
-            with psycopg2.connect(**self.connection_params) as conn:
+            with psycopg2.connect(**self.connection_params) as conn: #type: ignore
                 with conn.cursor() as cursor:
                     cursor.execute(query)
                     result = cursor.fetchone()
@@ -156,7 +167,7 @@ class MapucheConfig:
         """Obtiene el porcentaje de aporte diferencial de jubilación"""
         value = self.get_parametro_rrhh('Porcentaje', 'PorcAporteDiferencialJubilacion', '0')
         try:
-            return float(value)
+            return float(value) if value else 0.0
         except (ValueError, TypeError):
             return 0.0
     
@@ -167,140 +178,140 @@ class MapucheConfig:
     
     def get_sicoss_art_tope(self) -> str:
         """Obtiene el valor de ART con tope"""
-        return self.get_parametro_rrhh('Sicoss', 'ARTconTope', '1')
+        return self.get_parametro_rrhh('Sicoss', 'ARTconTope', '1') or '1'
     
     def get_sicoss_conceptos_no_remunerativos_en_art(self) -> str:
         """Obtiene los conceptos no remunerativos incluidos en el ART"""
-        return self.get_parametro_rrhh('Sicoss', 'ConceptosNoRemuEnART', '0')
+        return self.get_parametro_rrhh('Sicoss', 'ConceptosNoRemuEnART', '0') or '0'
     
     def get_sicoss_categorias_aportes_diferenciales(self) -> str:
         """Obtiene las categorías de aportes diferenciales"""
-        return self.get_parametro_rrhh('Sicoss', 'CategoriasAportesDiferenciales', '0')
+        return self.get_parametro_rrhh('Sicoss', 'CategoriasAportesDiferenciales', '0') or '0'
     
     def get_sicoss_horas_extras_novedades(self) -> int:
         """Obtiene el número de horas extras para novedades"""
         value = self.get_parametro_rrhh('Sicoss', 'HorasExtrasNovedades', '0')
         try:
-            return int(value)
+            return int(value) if value else 0
         except (ValueError, TypeError):
             return 0
     
     def get_parametros_ajustes_imp_contable(self) -> str:
         """Obtiene los parámetros de ajustes de imputaciones contables"""
-        return self.get_parametro_rrhh('Presupuesto', 'GestionAjustesImputacionesPresupuestarias', 'Deshabilitada')
+        return self.get_parametro_rrhh('Presupuesto', 'GestionAjustesImputacionesPresupuestarias', 'Deshabilitada') or 'Deshabilitada'
     
     # Métodos para licencias
     def get_var_licencias_10_dias(self) -> str:
         """Obtiene las variantes de licencias de 10 días"""
-        return self.get_parametro_rrhh('Licencias', 'VariantesILTPrimerTramo', '')
+        return self.get_parametro_rrhh('Licencias', 'VariantesILTPrimerTramo', '') or ''
     
     def get_var_licencias_11_dias_siguientes(self) -> str:
         """Obtiene las variantes de licencias de 11 días siguientes"""
-        return self.get_parametro_rrhh('Licencias', 'VariantesILTSegundoTramo', '')
+        return self.get_parametro_rrhh('Licencias', 'VariantesILTSegundoTramo', '') or ''
     
     def get_var_licencias_maternidad_down(self) -> str:
         """Obtiene las variantes de licencias de maternidad down"""
-        return self.get_parametro_rrhh('Licencias', 'VariantesMaternidadDown', '')
+        return self.get_parametro_rrhh('Licencias', 'VariantesMaternidadDown', '') or ''
     
     def get_var_licencia_excedencia(self) -> str:
         """Obtiene las variantes de licencias de excedencia"""
-        return self.get_parametro_rrhh('Licencias', 'VariantesExcedencia', '')
+        return self.get_parametro_rrhh('Licencias', 'VariantesExcedencia', '') or ''
     
     def get_var_licencia_vacaciones(self) -> str:
         """Obtiene las variantes de licencias de vacaciones"""
-        return self.get_parametro_rrhh('Licencias', 'VariantesVacaciones', '')
+        return self.get_parametro_rrhh('Licencias', 'VariantesVacaciones', '') or ''
     
     def get_var_licencia_protec_integral(self) -> str:
         """Obtiene las variantes de licencias de protección integral"""
-        return self.get_parametro_rrhh('Licencias', 'VariantesProtecIntegral', '')
+        return self.get_parametro_rrhh('Licencias', 'VariantesProtecIntegral', '') or ''
     
     def get_categorias_diferencial(self) -> str:
         """Obtiene las categorías diferenciales"""
-        return self.get_parametro_rrhh('Sicoss', 'CategoriaDiferencial', '')
+        return self.get_parametro_rrhh('Sicoss', 'CategoriaDiferencial', '') or ''
     
     # Métodos para configuración de obra social
     def get_defaults_obra_social(self) -> str:
         """Obtiene el código de obra social por defecto"""
-        return self.get_parametro_rrhh('Defaults', 'ObraSocial', '')
+        return self.get_parametro_rrhh('Defaults', 'ObraSocial', '') or ''
     
     def get_conceptos_obra_social_aporte_adicional(self) -> str:
         """Obtiene conceptos de obra social aporte adicional"""
-        return self.get_parametro_rrhh('Conceptos', 'ObraSocialAporteAdicional', '')
+        return self.get_parametro_rrhh('Conceptos', 'ObraSocialAporteAdicional', '') or ''
     
     def get_conceptos_obra_social_aporte(self) -> str:
         """Obtiene conceptos de obra social aporte"""
-        return self.get_parametro_rrhh('Conceptos', 'ObraSocialAporte', '')
+        return self.get_parametro_rrhh('Conceptos', 'ObraSocialAporte', '') or ''
     
     def get_conceptos_obra_social_retro(self) -> str:
         """Obtiene conceptos de obra social retro"""
-        return self.get_parametro_rrhh('Conceptos', 'ObraSocialRetro', '')
+        return self.get_parametro_rrhh('Conceptos', 'ObraSocialRetro', '') or ''
     
     def get_conceptos_obra_social(self) -> str:
         """Obtiene conceptos de obra social"""
-        return self.get_parametro_rrhh('Conceptos', 'ObraSocial', '')
+        return self.get_parametro_rrhh('Conceptos', 'ObraSocial', '') or ''
     
     def get_conceptos_obra_social_fliar_adherente(self) -> str:
         """Obtiene conceptos de obra social familiar adherente"""
-        return self.get_parametro_rrhh('Conceptos', 'ObraSocialFliarAdherente', '')
+        return self.get_parametro_rrhh('Conceptos', 'ObraSocialFliarAdherente', '') or ''
     
     # Métodos para topes
     def get_topes_jubilacion_voluntario(self) -> str:
         """Obtiene topes de jubilación voluntarios"""
-        return self.get_parametro_rrhh('Conceptos', 'JubilacionVoluntario', '')
+        return self.get_parametro_rrhh('Conceptos', 'JubilacionVoluntario', '') or ''
     
     def get_topes_jubilatorio_patronal(self) -> str:
         """Obtiene topes jubilatorio patronal"""
-        return self.get_parametro_rrhh('Topes', 'TopeJubilatorioPatronal', '')
+        return self.get_parametro_rrhh('Topes', 'TopeJubilatorioPatronal', '') or ''
     
     def get_topes_jubilatorio_personal(self) -> str:
         """Obtiene topes jubilatorio personal"""
-        return self.get_parametro_rrhh('Topes', 'TopeJubilatorioPersonal', '')
+        return self.get_parametro_rrhh('Topes', 'TopeJubilatorioPersonal', '') or ''
     
     def get_topes_otros_aportes_personales(self) -> str:
         """Obtiene topes de otros aportes personales"""
-        return self.get_parametro_rrhh('Topes', 'TopeOtrosAportesPersonales', '')
+        return self.get_parametro_rrhh('Topes', 'TopeOtrosAportesPersonales', '') or ''
     
     # Métodos para datos de la universidad
     def get_datos_universidad_cuit(self) -> str:
         """Obtiene el CUIT de la universidad"""
-        return self.get_parametro_rrhh('Datos Universidad', 'CUIT', '')
+        return self.get_parametro_rrhh('Datos Universidad', 'CUIT', '') or ''
     
     def get_datos_universidad_direccion(self) -> str:
         """Obtiene la dirección de la universidad"""
-        return self.get_parametro_rrhh('Datos Universidad', 'Direccion', '')
+        return self.get_parametro_rrhh('Datos Universidad', 'Direccion', '') or ''
     
     def get_datos_codc_reparto(self) -> str:
         """Obtiene el código de régimen de reparto"""
-        return self.get_parametro_rrhh('Datos Universidad', 'Cod.Régimen de Reparto', '')
+        return self.get_parametro_rrhh('Datos Universidad', 'Cod.Régimen de Reparto', '') or ''
     
     def get_datos_universidad_ciudad(self) -> str:
         """Obtiene la ciudad de la universidad"""
-        return self.get_parametro_rrhh('Datos Universidad', 'Ciudad', '')
+        return self.get_parametro_rrhh('Datos Universidad', 'Ciudad', '') or ''
     
     def get_datos_universidad_sigla(self) -> str:
         """Obtiene la sigla de la universidad"""
-        return self.get_parametro_rrhh('Datos Universidad', 'Sigla', '')
+        return self.get_parametro_rrhh('Datos Universidad', 'Sigla', '') or ''
     
     def get_datos_universidad_tipo_empresa(self) -> str:
         """Obtiene el tipo de empresa de la universidad"""
-        return self.get_parametro_rrhh('Datos Universidad', 'TipoEmpresa', '')
+        return self.get_parametro_rrhh('Datos Universidad', 'TipoEmpresa', '') or ''
     
     def get_datos_universidad_trabajador_convencionado(self) -> str:
         """Obtiene si el trabajador es convencionado"""
-        return self.get_parametro_rrhh('Datos Universidad', 'TrabajadorConvencionado', '')
+        return self.get_parametro_rrhh('Datos Universidad', 'TrabajadorConvencionado', '') or ''
     
     # Métodos para conceptos específicos
     def get_conceptos_informar_adherentes_sicoss(self) -> str:
         """Obtiene si informar adherentes desde dh09"""
-        return self.get_parametro_rrhh('Conceptos', 'AdherenteSicossDesdeH09', '0')
+        return self.get_parametro_rrhh('Conceptos', 'AdherenteSicossDesdeH09', '0') or '0'
     
     def get_conceptos_acumular_asig_familiar(self) -> str:
         """Obtiene si acumular asignación familiar"""
-        return self.get_parametro_rrhh('Conceptos', 'AcumularAsigFamiliar', '1')
+        return self.get_parametro_rrhh('Conceptos', 'AcumularAsigFamiliar', '1') or '1'
 
 
 # Función para crear una instancia de configuración
-def create_mapuche_config(parametros_conexion: Dict[str, str]) -> MapucheConfig:
+def create_mapuche_config(parametros_conexion: ConnectionParams) -> MapucheConfig:
     """
     Factory function para crear una instancia de MapucheConfig
     
@@ -309,15 +320,16 @@ def create_mapuche_config(parametros_conexion: Dict[str, str]) -> MapucheConfig:
         
     Returns:
         Instancia configurada de MapucheConfig
-        :type parametros_conexion: Dict[str, str]
+        :type parametros_conexion: ConnectionParams
     """
     return MapucheConfig(parametros_conexion)
+
 
 
 # Ejemplo de uso
 if __name__ == "__main__":
     # Configuración de ejemplo
-    connection_params = {
+    connection_params: ConnectionParams = {
         'host': 'localhost',
         'database': 'liqui',
         'user': 'postgres',
