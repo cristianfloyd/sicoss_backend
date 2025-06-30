@@ -357,7 +357,10 @@ class SicossDataProcessor:
                 logger.info(f"Obra social agregada para {len(df_os)} legajos")
             
             # Valor por defecto
-            df_legajos['codigo_os'] = df_legajos.get('codigo_os', '000000').fillna('000000')
+            if 'codigo_os' not in df_legajos.columns:
+                df_legajos['codigo_os'] = '000000'
+            else:
+                df_legajos['codigo_os'] = df_legajos['codigo_os'].fillna('000000')
             
             data['legajos'] = df_legajos
             return data
@@ -365,7 +368,8 @@ class SicossDataProcessor:
         except Exception as e:
             logger.error(f"Error agregando obra social: {e}")
             # Para pasos no críticos, continuar con valor por defecto
-            data['legajos']['codigo_os'] = '000000'
+            if 'legajos' in data and isinstance(data['legajos'], pd.DataFrame):
+                data['legajos']['codigo_os'] = '000000'
             self.metrics.warnings.append(f"Obra social omitida: {e}")
             return data
     

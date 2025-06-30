@@ -765,9 +765,11 @@ class SicossDatabaseSaver:
             df_original = len(legajos_bd)
             
             # Por ahora filtrar solo legajos con número válido
-            mask_valido = True
             if 'nro_legaj' in legajos_bd.columns:
                 mask_valido = (legajos_bd['nro_legaj'] > 0) & legajos_bd['nro_legaj'].notna()
+            else:
+                # Si no hay columna nro_legaj, mantener todos los registros
+                mask_valido = pd.Series([True] * len(legajos_bd), index=legajos_bd.index)
             
             legajos_activos = legajos_bd[mask_valido].copy()
             
