@@ -32,6 +32,12 @@ class TopesProcessor(BaseProcessor):
     
     def _aplicar_topes_patronales(self, df: pd.DataFrame) -> pd.DataFrame:
         """Aplica topes patronales (SAC + Imponible sin SAC)"""
+        # Asegurar que las columnas requeridas existan
+        for campo in ['ImporteSAC', 'ImporteImponibleSinSAC', 'ImporteImponiblePatronal', 
+                      'DiferenciaSACImponibleConTope', 'DiferenciaImponibleConTope', 'ImporteSACPatronal']:
+            if campo not in df.columns:
+                df[campo] = 0.0
+        
         # 1. Tope SAC patronal
         tope_sac = self.config.tope_sac_jubilatorio_patr
         mask_excede_sac = df['ImporteSAC'] > tope_sac

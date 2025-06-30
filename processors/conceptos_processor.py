@@ -345,13 +345,14 @@ class ConceptosProcessor(BaseProcessor):
         )
         
         # 2. Ajustar SAC si hay investigadores (restar SAC de investigadores)
-        mask_investigadores = df.get('SACInvestigador', 0) > 0
-        if mask_investigadores.any():
-            df.loc[mask_investigadores, 'ImporteSAC'] = (
-                df.loc[mask_investigadores, 'ImporteSAC'] -
-                df.loc[mask_investigadores, 'SACInvestigador']
-            )
-            logger.info(f"Ajustado SAC para {mask_investigadores.sum()} investigadores")
+        if 'SACInvestigador' in df.columns:
+            mask_investigadores = df['SACInvestigador'] > 0
+            if mask_investigadores.any():
+                df.loc[mask_investigadores, 'ImporteSAC'] = (
+                    df.loc[mask_investigadores, 'ImporteSAC'] -
+                    df.loc[mask_investigadores, 'SACInvestigador']
+                )
+                logger.info(f"Ajustado SAC para {mask_investigadores.sum()} investigadores")
         
         # 3. Calcular ImporteImponiblePatronal (base para topes)
         df['ImporteImponiblePatronal'] = df['Remuner78805'].copy()
@@ -373,6 +374,7 @@ class ConceptosProcessor(BaseProcessor):
             'ImporteSACNoDocente': 'ImporteSAC',  # Copia de ImporteSAC
             'ImporteImponible_4': 'IMPORTE_IMPON',  # Copia de IMPORTE_IMPON
             'ImporteImponible_5': 'IMPORTE_IMPON',  # Copia de IMPORTE_IMPON
+            'ImporteImponible_6': 0.0,  # Asegurar que siempre existe
             'TipoDeOperacion': 1,
             'ImporteSueldoMasAdicionales': 0.0,
             'ImporteSACOtraActividad': 0.0,
@@ -401,8 +403,8 @@ class ConceptosProcessor(BaseProcessor):
         
         # Si es positivo, restar incremento solidario
         mask_positivo = df['ImporteSueldoMasAdicionales'] > 0
-        if mask_positivo.any():
-            df.loc[mask_positivo, 'ImporteSueldoMasAdicionales'] -= df.loc[mask_positivo].get('IncrementoSolidario', 0)
+        if mask_positivo.any() and 'IncrementoSolidario' in df.columns:
+            df.loc[mask_positivo, 'ImporteSueldoMasAdicionales'] -= df.loc[mask_positivo, 'IncrementoSolidario']
         
         # 9. Configurar trabajador convencionado si no está definido
         if 'trabajadorconvencionado' not in df.columns or df['trabajadorconvencionado'].isna().all():

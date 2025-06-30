@@ -384,6 +384,10 @@ class CalculosSicossProcessor(BaseProcessor):
             df.loc[mask_diferencia_art, 'importeimponible_9'] = art_esperado.loc[mask_diferencia_art]
         
         # 3. Validar TipoDeOperacion coherente con ImporteImponible_6
+        # Asegurar que ImporteImponible_6 existe
+        if 'ImporteImponible_6' not in df.columns:
+            df['ImporteImponible_6'] = 0.0
+        
         mask_tipo2 = df['TipoDeOperacion'] == 2
         mask_sin_imp6 = df['ImporteImponible_6'] == 0
         
