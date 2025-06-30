@@ -501,7 +501,7 @@ config = {
 legajos = [
     {
         'nro_legaj': 12345,
-        'cuit': '20123456789',
+        'cuit': '20999999999',
         'apyno': 'PEREZ JUAN',
         'codigosituacion': 1,
         'codigocondicion': 1,

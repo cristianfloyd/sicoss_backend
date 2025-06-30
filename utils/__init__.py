@@ -7,4 +7,6 @@ Contiene clases helper y utilidades:
 
 from .statistics import EstadisticasHelper
 
-__all__ = ['EstadisticasHelper'] 
+__all__ = ['EstadisticasHelper']
+
+# Utils module for SICOSS backend 
