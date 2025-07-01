@@ -198,17 +198,18 @@ class ConceptosProcessor(BaseProcessor):
     def _procesar_casos_simples(self, df: pd.DataFrame) -> pd.DataFrame:
         """Procesa casos simples con mapeo directo"""
         # Filtrar solo tipos simples
-        mask_simples = df['tipo_grupo'].isin(self.mapeo_simple.keys())
+        mask_simples = df['tipo_grupo'].isin(list(self.mapeo_simple.keys()))
         df_simples = df[mask_simples].copy()
         
         if df_simples.empty:
             return pd.DataFrame(columns=['nro_legaj', 'campo_sicoss', 'valor'])
         
         # Mapear tipo_grupo a campo_sicoss
+        df_simples = df_simples.copy()
         df_simples['campo_sicoss'] = df_simples['tipo_grupo'].map(self.mapeo_simple)
         df_simples['valor'] = df_simples['impp_conce']
         
-        return df_simples[['nro_legaj', 'campo_sicoss', 'valor']]
+        return df_simples[['nro_legaj', 'campo_sicoss', 'valor']].copy()
 
     def _procesar_sac_escalafon(self, df: pd.DataFrame) -> pd.DataFrame:
         """Procesa SAC (tipo 9) con lógica de escalafón"""
@@ -354,20 +355,24 @@ class ConceptosProcessor(BaseProcessor):
                 )
                 logger.info(f"Ajustado SAC para {mask_investigadores.sum()} investigadores")
         
-        # 3. Calcular ImporteImponiblePatronal (base para topes)
+        # 3. *** NUEVA LÓGICA: Calcular TipoDeActividad ***
+        # Implementa exactamente la misma lógica que PHP (líneas 1866-1871)
+        df = self._calcular_tipo_actividad(df)
+        
+        # 4. Calcular ImporteImponiblePatronal (base para topes)
         df['ImporteImponiblePatronal'] = df['Remuner78805'].copy()
         
-        # 4. Calcular campos derivados principales
+        # 5. Calcular campos derivados principales
         df['ImporteSACPatronal'] = df.get('ImporteSAC', 0)
         df['ImporteImponibleSinSAC'] = df['ImporteImponiblePatronal'] - df['ImporteSACPatronal']
         
-        # 5. Calcular IMPORTE_BRUTO (imponible + no remunerativo)
+        # 6. Calcular IMPORTE_BRUTO (imponible + no remunerativo)
         df['IMPORTE_BRUTO'] = df['ImporteImponiblePatronal'] + df.get('ImporteNoRemun', 0)
         
-        # 6. Calcular IMPORTE_IMPON inicial (base para procesos posteriores)
+        # 7. Calcular IMPORTE_IMPON inicial (base para procesos posteriores)
         df['IMPORTE_IMPON'] = df['Remuner78805'].copy()
         
-        # 7. Inicializar campos adicionales que necesita TopesProcessor
+        # 8. Inicializar campos adicionales que necesita TopesProcessor
         campos_adicionales = {
             'DiferenciaSACImponibleConTope': 0.0,
             'DiferenciaImponibleConTope': 0.0,
@@ -390,7 +395,7 @@ class ConceptosProcessor(BaseProcessor):
                 # Es un valor constante
                 df[campo] = valor
         
-        # 8. Calcular ImporteSueldoMasAdicionales (fórmula específica)
+        # 9. Calcular ImporteSueldoMasAdicionales (fórmula específica)
         df['ImporteSueldoMasAdicionales'] = (
             df['ImporteImponiblePatronal'] -
             df.get('ImporteSAC', 0) -
@@ -406,7 +411,7 @@ class ConceptosProcessor(BaseProcessor):
         if mask_positivo.any() and 'IncrementoSolidario' in df.columns:
             df.loc[mask_positivo, 'ImporteSueldoMasAdicionales'] -= df.loc[mask_positivo, 'IncrementoSolidario']
         
-        # 9. Configurar trabajador convencionado si no está definido
+        # 10. Configurar trabajador convencionado si no está definido
         if 'trabajadorconvencionado' not in df.columns or df['trabajadorconvencionado'].isna().all():
             df['trabajadorconvencionado'] = 'S'
         
@@ -415,5 +420,60 @@ class ConceptosProcessor(BaseProcessor):
         logger.info(f"  - ImporteImponiblePatronal: ${df['ImporteImponiblePatronal'].sum():,.2f}")
         logger.info(f"  - IMPORTE_BRUTO: ${df['IMPORTE_BRUTO'].sum():,.2f}")
         logger.info(f"  - IMPORTE_IMPON: ${df['IMPORTE_IMPON'].sum():,.2f}")
+        
+        return df
+    
+    def _calcular_tipo_actividad(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calcula TipoDeActividad basado en PrioridadTipoDeActividad y codigoactividad
+        
+        Implementa exactamente la misma lógica que PHP (SicossOptimizado.php líneas 1866-1871):
+        
+        if ($leg['PrioridadTipoDeActividad'] == 38 || $leg['PrioridadTipoDeActividad'] == 0)
+            $leg['TipoDeActividad'] = $leg['codigoactividad'];
+        elseif (($leg['PrioridadTipoDeActividad'] >= 34 && $leg['PrioridadTipoDeActividad'] <= 37) ||
+            $leg['PrioridadTipoDeActividad'] == 87 || $leg['PrioridadTipoDeActividad'] == 88)
+            $leg['TipoDeActividad'] = $leg['PrioridadTipoDeActividad'];
+        """
+        logger.info("🎯 Calculando TipoDeActividad según prioridades...")
+        
+        # Asegurar que existen los campos necesarios
+        if 'PrioridadTipoDeActividad' not in df.columns:
+            df['PrioridadTipoDeActividad'] = 0
+        
+        if 'codigoactividad' not in df.columns:
+            logger.warning("⚠️  Campo 'codigoactividad' no encontrado, usando 0 por defecto")
+            df['codigoactividad'] = 0
+        
+        # Inicializar TipoDeActividad en 0
+        df['TipoDeActividad'] = 0
+        
+        # Convertir a enteros para comparación
+        df['PrioridadTipoDeActividad'] = pd.to_numeric(df['PrioridadTipoDeActividad'], errors='coerce').fillna(0).astype(int)
+        df['codigoactividad'] = pd.to_numeric(df['codigoactividad'], errors='coerce').fillna(0).astype(int)
+        
+        # LÓGICA EXACTA DE PHP:
+        
+        # Caso 1: Si prioridad es 38 o 0 → usar codigoactividad del cargo
+        mask_codigo_actividad = (df['PrioridadTipoDeActividad'] == 38) | (df['PrioridadTipoDeActividad'] == 0)
+        df.loc[mask_codigo_actividad, 'TipoDeActividad'] = df.loc[mask_codigo_actividad, 'codigoactividad']
+        
+        # Caso 2: Si prioridad está entre 34-37 o es 87/88 → usar la prioridad
+        mask_prioridad = (
+            ((df['PrioridadTipoDeActividad'] >= 34) & (df['PrioridadTipoDeActividad'] <= 37)) |
+            (df['PrioridadTipoDeActividad'] == 87) |
+            (df['PrioridadTipoDeActividad'] == 88)
+        )
+        df.loc[mask_prioridad, 'TipoDeActividad'] = df.loc[mask_prioridad, 'PrioridadTipoDeActividad']
+        
+        # Estadísticas para logging
+        stats_actividad = df['TipoDeActividad'].value_counts().to_dict()
+        stats_prioridad = df['PrioridadTipoDeActividad'].value_counts().to_dict()
+        
+        logger.info(f"✅ TipoDeActividad calculado:")
+        logger.info(f"   - Legajos con codigoactividad (prioridad 38/0): {mask_codigo_actividad.sum()}")
+        logger.info(f"   - Legajos con prioridad investigador (34-37,87,88): {mask_prioridad.sum()}")
+        logger.info(f"   - Distribución TipoDeActividad: {stats_actividad}")
+        logger.info(f"   - Distribución PrioridadTipoDeActividad: {stats_prioridad}")
         
         return df
