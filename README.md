@@ -1,4 +1,4 @@
-# 🏆 SICOSS Backend - Migración PHP → Python COMPLETADA
+# 🏆 SICOSS Backend - Migración PHP → Python
 
 **Sistema de procesamiento de nóminas SICOSS completamente en Python**
 
