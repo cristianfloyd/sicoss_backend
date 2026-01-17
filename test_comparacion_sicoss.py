@@ -53,7 +53,7 @@ class ComparadorSicoss:
         # Campos SICOSS según documentación oficial
         self.campos_sicoss = self._definir_campos_sicoss()
         
-        print("✅ Comparador inicializado")
+        print("Comparador inicializado")
     
     def _definir_campos_sicoss(self) -> Dict[str, Dict]:
         """Define los campos SICOSS según la documentación oficial"""
@@ -109,8 +109,8 @@ class ComparadorSicoss:
     def ejecutar_comparacion_completa(self, per_anoct: int = 2025, per_mesct: int = 5) -> Dict:
         """Ejecuta la comparación completa"""
         
-        print(f"\n🔄 EJECUTANDO COMPARACIÓN SICOSS")
-        print(f"📅 Período: {per_anoct}/{per_mesct:02d}")
+        print("\n EJECUTANDO COMPARACIÓN SICOSS")
+        print(f"Período: {per_anoct}/{per_mesct:02d}")
         print("=" * 60)
         
         resultado = {
@@ -124,38 +124,38 @@ class ComparadorSicoss:
         
         try:
             # PASO 1: Encontrar un legajo para comparar que exista en ambas tablas
-            print("\n🔍 PASO 1: Buscando legajo común en ambas tablas...")
+            print("\nPASO 1: Buscando legajo común en ambas tablas...")
             legajo_comun = self._encontrar_legajo_comun(per_anoct, per_mesct)
             
             if not legajo_comun:
                 raise Exception("No se encontró ningún legajo común entre las tablas Python y PHP Legacy")
             
-            print(f"✅ Legajo encontrado para comparar: {legajo_comun}")
+            print(f"Legajo encontrado para comparar: {legajo_comun}")
             resultado['legajo_comparado'] = legajo_comun
             
             # PASO 2: Ejecutar pipeline Python para este legajo específico
-            print(f"\n⚙️ PASO 2: Ejecutando pipeline Python para legajo {legajo_comun}...")
+            print(f"\nPASO 2: Ejecutando pipeline Python para legajo {legajo_comun}...")
             resultado_python = self._ejecutar_pipeline_python(per_anoct, per_mesct, legajo_comun)
             
             if not resultado_python['success']:
                 raise Exception(f"Error en pipeline Python: {resultado_python.get('error')}")
             
             # PASO 3: Obtener datos del sistema legacy
-            print(f"\n📊 PASO 3: Obteniendo datos legacy para legajo {legajo_comun}...")
+            print(f"\nPASO 3: Obteniendo datos legacy para legajo {legajo_comun}...")
             datos_legacy = self._obtener_datos_legacy(legajo_comun, per_anoct, per_mesct)
             
             if datos_legacy.empty:
                 raise Exception(f"No se encontraron datos legacy para legajo {legajo_comun}")
             
             # PASO 4: Obtener datos del sistema Python
-            print(f"\n📊 PASO 4: Obteniendo datos Python para legajo {legajo_comun}...")
+            print(f"\nPASO 4: Obteniendo datos Python para legajo {legajo_comun}...")
             datos_python = self._obtener_datos_python(legajo_comun, per_anoct, per_mesct)
             
             if datos_python.empty:
                 raise Exception(f"No se encontraron datos Python para legajo {legajo_comun}")
             
             # PASO 5: Comparar campo por campo
-            print(f"\n🔍 PASO 5: Comparando campos SICOSS...")
+            print("\n PASO 5: Comparando campos SICOSS...")
             comparacion = self._comparar_datos(datos_python.iloc[0], datos_legacy.iloc[0])
             
             resultado.update({
@@ -172,7 +172,7 @@ class ComparadorSicoss:
             
         except Exception as e:
             error = f"Error en comparación: {str(e)}"
-            print(f"\n❌ {error}")
+            print(f"\n {error}")
             resultado['errores'].append(error)
             return resultado
     
@@ -330,15 +330,15 @@ class ComparadorSicoss:
     def _generar_reporte_comparacion(self, resultado: Dict):
         """Genera el reporte de comparación"""
         
-        print(f"\n" + "="*80)
+        print("\n" + "="*80)
         print("REPORTE DE COMPARACIÓN SICOSS PYTHON vs PHP LEGACY")
         print("="*80)
         
         if resultado['success']:
-            print(f"✅ Comparación exitosa para CUIL: {resultado['legajo_comparado']}")
+            print(f"Comparación exitosa para CUIL: {resultado['legajo_comparado']}")
             
             resumen = resultado['resumen_estadistico']
-            print(f"\n📊 RESUMEN ESTADÍSTICO:")
+            print("\nRESUMEN ESTADÍSTICO:")
             print(f"   - Total campos comparados: {resumen['total_campos']}")
             print(f"   - Coincidencias: {resumen['coincidencias']}")
             print(f"   - Diferencias: {resumen['diferencias']}")
@@ -346,7 +346,7 @@ class ComparadorSicoss:
             
             # Mostrar diferencias críticas
             if resultado['diferencias']:
-                print(f"\n❌ DIFERENCIAS ENCONTRADAS ({len(resultado['diferencias'])}):")
+                print(f"\nDIFERENCIAS ENCONTRADAS ({len(resultado['diferencias'])}):")
                 print("-" * 80)
                 
                 for diff in resultado['diferencias']:
@@ -364,14 +364,14 @@ class ComparadorSicoss:
                                        if c['tipo'] in ['remuneracion', 'concepto']]
             
             if coincidencias_importantes:
-                print(f"\n✅ COINCIDENCIAS IMPORTANTES ({len(coincidencias_importantes)}):")
+                print("\nCOINCIDENCIAS IMPORTANTES ({len(coincidencias_importantes)}):")
                 print("-" * 80)
                 
                 for coin in coincidencias_importantes[:10]:  # Mostrar solo las primeras 10
                     print(f"✓ {coin['nombre']}: {coin['valor_python']}")
             
         else:
-            print("❌ La comparación falló")
+            print("La comparación falló")
             for error in resultado.get('errores', []):
                 print(f"   Error: {error}")
         
@@ -400,7 +400,7 @@ class ComparadorSicoss:
 
 def main():
     """Función principal del comparador"""
-    print("🔍 COMPARADOR SICOSS PYTHON vs PHP LEGACY")
+    print("COMPARADOR SICOSS PYTHON vs PHP LEGACY")
     print("=" * 50)
     print("Compara campo por campo los resultados del sistema refactorizado")
     print("con el sistema legacy para verificar equivalencia de cálculos")
@@ -418,20 +418,20 @@ def main():
         if resultado['success']:
             resumen = resultado['resumen_estadistico']
             if resumen['diferencias'] == 0:
-                print("\n🎉 ¡ÉXITO TOTAL! Los sistemas son equivalentes")
-                print("✅ Todos los campos coinciden exactamente")
+                print("\n¡ÉXITO TOTAL! Los sistemas son equivalentes")
+                print("Todos los campos coinciden exactamente")
                 return True
             else:
-                print(f"\n⚠️ Se encontraron {resumen['diferencias']} diferencias")
-                print(f"📊 Coincidencia: {resumen['porcentaje_coincidencia']:.1f}%")
-                print("🔧 Revisar diferencias específicas en el reporte anterior")
+                print(f"\nSe encontraron {resumen['diferencias']} diferencias")
+                print(f"Coincidencia: {resumen['porcentaje_coincidencia']:.1f}%")
+                print("Revisar diferencias específicas en el reporte anterior")
                 return False
         else:
-            print("\n❌ La comparación falló")
+            print("\nLa comparación falló")
             return False
         
     except Exception as e:
-        print(f"💥 Error crítico: {e}")
+        print(f"Error crítico: {e}")
         return False
     finally:
         if comparador:
