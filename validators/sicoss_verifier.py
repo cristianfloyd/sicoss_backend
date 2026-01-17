@@ -6,14 +6,15 @@ Compara resultados entre el sistema Python nuevo y el PHP legacy para validar
 que la migración mantiene la misma lógica y resultados.
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Tuple, Optional, Any
-from dataclasses import dataclass
-import logging
-from decimal import Decimal, ROUND_HALF_UP
 import json
+import logging
+from dataclasses import dataclass
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +193,7 @@ class SicossVerifier:
             df_php (pd.DataFrame): DataFrame con los resultados del sistema PHP legacy.
 
         Returns:
-            Tuple[pd.DataFrame, pd.DataFrame]: 
+            Tuple[pd.DataFrame, pd.DataFrame]:
                 Una tupla con los DataFrames filtrados y normalizados, con los mismos legajos y tipos compatibles.
 
         Raises:
