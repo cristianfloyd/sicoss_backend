@@ -5,32 +5,36 @@ Módulo contenedor de consultas SQL optimizadas para SICOSS
 Extraído de SicossDataExtractor.py para mejor organización
 """
 
-from typing import List
 import logging
+from typing import List
 
 logger = logging.getLogger(__name__)
 
+
 class SicossSQLQueries:
     """Contiene las consultas SQL optimizadas extraídas de SicossOptimizado.php"""
-    
+
     @staticmethod
-    def get_legajos_query(per_anoct: int, per_mesct: int, 
-                         codc_reparto: str = "'REPA'", 
-                         where_legajo: str = "true") -> str:
+    def get_legajos_query(
+        per_anoct: int,
+        per_mesct: int,
+        codc_reparto: str = "'REPA'",
+        where_legajo: str = "true",
+    ) -> str:
         """
         Consulta optimizada para obtener legajos (basada en get_sql_legajos())
-        
+
         Args:
             per_anoct: Año del período
             per_mesct: Mes del período
             codc_reparto: Código de reparto (default: "'REPA'")
             where_legajo: Cláusula WHERE adicional (default: "true")
-            
+
         Returns:
             str: Query SQL optimizada para legajos
         """
         logger.debug(f"Generando query legajos para período {per_anoct}/{per_mesct}")
-        
+
         return f"""
         SELECT
             DISTINCT(dh01.nro_legaj),
@@ -78,23 +82,24 @@ class SicossSQLQueries:
         WHERE {where_legajo}
         ORDER BY dh01.nro_legaj
         """
-    
+
     @staticmethod
-    def get_conceptos_liquidados_query(per_anoct: int, per_mesct: int,
-                                     where_legajo: str = "true") -> str:
+    def get_conceptos_liquidados_query(
+        per_anoct: int, per_mesct: int, where_legajo: str = "true"
+    ) -> str:
         """
         Consulta optimizada para conceptos liquidados (basada en getConsultaConceptosOptimizada())
-        
+
         Args:
             per_anoct: Año del período
             per_mesct: Mes del período
             where_legajo: Cláusula WHERE adicional (default: "true")
-            
+
         Returns:
             str: Query SQL optimizada para conceptos liquidados
         """
         logger.debug(f"Generando query conceptos para período {per_anoct}/{per_mesct}")
-        
+
         return f"""
         WITH tipos_grupos_conceptos AS (
             SELECT
@@ -128,24 +133,24 @@ class SicossSQLQueries:
         AND dh21.codn_conce > 0
         AND {where_legajo}
         """
-    
+
     @staticmethod
     def get_otra_actividad_query(legajos: List[int]) -> str:
         """
         Consulta para otra actividad (basada en otra_actividad())
-        
+
         Args:
             legajos: Lista de números de legajo
-            
+
         Returns:
             str: Query SQL para otra actividad
         """
         if not legajos:
             return "SELECT NULL::integer AS nro_legaj, NULL::numeric AS ImporteBrutoOtraActividad, NULL::numeric AS ImporteSACOtraActividad WHERE FALSE"
-        
-        legajos_str = ','.join(map(str, legajos))
+
+        legajos_str = ",".join(map(str, legajos))
         logger.debug(f"Generando query otra actividad para {len(legajos)} legajos")
-        
+
         return f"""
         SELECT
 			nro_legaj,
@@ -159,51 +164,55 @@ class SicossSQLQueries:
 			vig_ano, vig_mes DESC
 		LIMIT 1
         """
-    
+
     @staticmethod
     def get_codigos_obra_social_query(legajos: List[int]) -> str:
         """
         Consulta para códigos de obra social (basada en codigo_os())
         Siempre retorna '000000' para todos los legajos
-        
+
         Args:
             legajos: Lista de números de legajo
-            
+
         Returns:
             str: Query SQL para códigos de obra social
         """
         if not legajos:
-            return "SELECT NULL::integer AS nro_legaj, NULL::text AS codigo_os WHERE FALSE"
-        
-        legajos_str = ','.join(map(str, legajos))
+            return (
+                "SELECT NULL::integer AS nro_legaj, NULL::text AS codigo_os WHERE FALSE"
+            )
+
+        legajos_str = ",".join(map(str, legajos))
         logger.debug(f"Generando query obra social para {len(legajos)} legajos")
-        
+
         return f"""
         SELECT 
             nro_legaj,
             '000000' AS codigo_os
         FROM UNNEST(ARRAY[{legajos_str}]) AS nro_legaj
         """
-    
+
     @staticmethod
     def get_licencias_query(legajos: List[int], per_anoct: int, per_mesct: int) -> str:
         """
         Consulta para obtener licencias de legajos en un período específico
-        
+
         Args:
             legajos: Lista de números de legajo
             per_anoct: Año del período
             per_mesct: Mes del período
-            
+
         Returns:
             str: Query SQL para licencias
         """
         if not legajos:
             return "SELECT NULL::integer AS nro_legaj, NULL::integer AS licencia WHERE FALSE"
-        
-        legajos_str = ','.join(map(str, legajos))
-        logger.debug(f"Generando query licencias para {len(legajos)} legajos, período {per_anoct}/{per_mesct}")
-        
+
+        legajos_str = ",".join(map(str, legajos))
+        logger.debug(
+            f"Generando query licencias para {len(legajos)} legajos, período {per_anoct}/{per_mesct}"
+        )
+
         return f"""
         SELECT 
             nro_legaj,
@@ -214,26 +223,26 @@ class SicossSQLQueries:
         AND mes_licencia = {per_mesct}
         GROUP BY nro_legaj
         """
-    
+
     @staticmethod
     def get_retro_query(legajos: List[int], per_anoct: int, per_mesct: int) -> str:
         """
         Consulta para obtener retroactivos de legajos
-        
+
         Args:
             legajos: Lista de números de legajo
             per_anoct: Año del período
             per_mesct: Mes del período
-            
+
         Returns:
             str: Query SQL para retroactivos
         """
         if not legajos:
             return "SELECT NULL::integer AS nro_legaj, NULL::numeric AS importe_retro WHERE FALSE"
-        
-        legajos_str = ','.join(map(str, legajos))
+
+        legajos_str = ",".join(map(str, legajos))
         logger.debug(f"Generando query retroactivos para {len(legajos)} legajos")
-        
+
         return f"""
         SELECT 
             nro_legaj,
@@ -244,25 +253,25 @@ class SicossSQLQueries:
         AND mes_retro IS NOT NULL
         GROUP BY nro_legaj
         """
-    
+
     @classmethod
     def validate_query_params(cls, per_anoct: int, per_mesct: int) -> bool:
         """
         Valida parámetros básicos de las consultas
-        
+
         Args:
             per_anoct: Año del período
             per_mesct: Mes del período
-            
+
         Returns:
             bool: True si los parámetros son válidos
         """
         if not isinstance(per_anoct, int) or per_anoct < 2000 or per_anoct > 2050:
             logger.error(f"Año inválido: {per_anoct}")
             return False
-        
+
         if not isinstance(per_mesct, int) or per_mesct < 1 or per_mesct > 12:
             logger.error(f"Mes inválido: {per_mesct}")
             return False
-        
-        return True 
+
+        return True
