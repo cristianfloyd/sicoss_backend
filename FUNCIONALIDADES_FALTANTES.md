@@ -131,6 +131,33 @@ class PeriodoFiscal:
 
 ---
 
+## 🟡 **REFACTORIZACIÓN PENDIENTE - EXTRACCIÓN DE LICENCIAS**
+
+### **7. 🔄 EXTRACTOR DE LICENCIAS REFACTORIZADO**
+# PENDIENTE: extractors/licencias_extractor.py
+# Migrar desde tests_legacy/mapuche_licencias_extractor.py
+
+class LicenciasExtractor(BaseExtractor):
+    """Extractor especializado para licencias de protección integral y vacaciones"""
+    
+    def extract(self, per_anoct: int, per_mesct: int, 
+                legajos: List[int] = None) -> pd.DataFrame:
+        """Extrae licencias para período específico"""
+        pass
+        
+    def extract_for_legajos(self, per_anoct: int, per_mesct: int, 
+                           legajos: List[int]) -> pd.DataFrame:
+        """Extrae licencias para legajos específicos"""
+        pass
+
+# INTEGRACIÓN PENDIENTE en DataExtractorManager:
+# - Agregar self.licencias_extractor = LicenciasExtractor(db_connection)
+# - Incluir en extraer_datos_completos() → 'licencias': df_licencias
+# - Integrar en pipeline de procesamiento SICOSS
+
+
+---
+
 ## 🟡 **PRIORIDAD MEDIA - OPTIMIZACIÓN Y PERFORMANCE**
 
 ### **4. 🧮 SISTEMA DE PRECARGA MASIVA**
