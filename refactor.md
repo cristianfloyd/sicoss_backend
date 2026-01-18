@@ -18,6 +18,94 @@
 
 ---
 
+## 📖 **HISTORIA Y EVOLUCIÓN DEL PROYECTO**
+
+### **🔄 Walkthrough Completo del Refactor:**
+
+Este proyecto evolucionó desde el sistema legacy de liquidación hasta la arquitectura modular actual, pasando por múltiples etapas:
+
+#### **FASE 0: Sistema Legacy PHP (dgsuc-app)**
+```
+📄 sicoss.php
+   └── Clase legacy extraída del sistema de liquidación legacy
+```
+
+#### **FASE 1: Refactorización PHP**
+```
+📄 sicoss.php
+   └── 🔄 REFACTORIZACIÓN EN PHP
+       └── 📄 SicossOptimizado.php
+           └── Optimización del sistema legacy manteniendo PHP
+           └── Mejoras en consultas SQL y estructura de código
+```
+
+#### **FASE 2: Migración MVP a Python**
+```
+📄 SicossOptimizado.php (PHP)
+   └── 🔄 MIGRACIÓN LINEAL A PYTHON
+       └── 📄 SicossDataExtractor.py      (MVP monolítico)
+       └── 📄 SicossProcessor.py          (MVP monolítico)
+       └── 📄 SicossBackEnd.py            (MVP monolítico)
+```
+**Estado:** MVP funcional pero con arquitectura monolítica (mismos problemas del PHP)
+
+#### **FASE 3: Refactorización a Arquitectura Modular Python**
+```
+📄 SicossDataExtractor.py (MVP monolítico)
+   └── 🔄 REFACTORIZACIÓN MODULAR
+       └── 📁 extractors/
+           ├── base_extractor.py
+           ├── legajos_extractor.py
+           ├── conceptos_extractor.py
+           └── data_extractor_manager.py
+       └── 📁 database/database_connection.py
+       └── 📁 queries/sicoss_queries.py
+
+📄 SicossProcessor.py (MVP monolítico)
+   └── 🔄 REFACTORIZACIÓN MODULAR
+       └── 📁 processors/
+           ├── base_processor.py
+           ├── conceptos_processor.py
+           ├── calculos_processor.py
+           ├── topes_processor.py
+           ├── validator.py
+           └── sicoss_processor.py (coordinador)
+```
+
+#### **FASE 4: Integración FastAPI (Actual)**
+```
+🏗️ Arquitectura Modular Python
+   └── ➕ FASTAPI LAYER
+       └── 📄 api_example.py
+       └── 📁 exporters/recordset_exporter.py
+```
+
+**Arquitectura Final:**
+```
+🌐 Laravel PHP (dgsuc-app)
+    ↓ HTTP REST API
+🔌 FastAPI Gateway (Python)
+    ↓ Direct Python calls
+🧠 SICOSS Backend Modular (Python)
+    ├── extractors/      ← Refactorizado desde MVP
+    ├── processors/      ← Refactorizado desde MVP
+    ├── database/        ← Refactorizado desde MVP
+    └── config/          ← Refactorizado desde MVP
+    ↓ SQL queries
+📊 PostgreSQL Database
+```
+
+### **📂 Código Legacy Preservado:**
+
+Los archivos del MVP inicial se han preservado en `tests_legacy/` para referencia histórica:
+
+- `tests_legacy/SicossDataExtractor.py` - MVP monolítico original
+- `tests_legacy/SicossProcessor.py` - MVP monolítico original (1750 líneas)
+- `tests_legacy/SicossBackEnd.py` - MVP monolítico original
+- `tests_legacy/mapuche_licencias_extractor.py` - Extractor legacy (🟡 **PENDIENTE REFACTORIZAR**)
+
+---
+
 ## 🏗️ Arquitectura Final Implementada
 
 ```
@@ -252,6 +340,119 @@ class SicossProcessorTester:
 - **Automatización:** Suite ejecutable con un comando
 - **Métricas:** Tiempo, memoria, rendimiento
 - **Validación:** Compatibilidad con formato original
+
+---
+
+## 🟡 **PASO PENDIENTE: Extracción de Licencias - NO IMPLEMENTADO**
+
+### **⚠️ Funcionalidad Falta Refactorizar**
+
+En `SicossOptimizado.php` existen métodos de licencias que **NO fueron migrados** a la arquitectura modular:
+
+#### **Métodos en SicossOptimizado.php (NO Refactorizados):**
+
+##### **1. `get_licencias_protecintegral_vacaciones()` (línea 197)**
+```php
+public static function get_licencias_protecintegral_vacaciones($where_legajos): array
+```
+**Descripción:** Obtiene licencias de protección integral y vacaciones para legajos  
+**Estado:** ⚠️ Existe en `tests_legacy/mapuche_licencias_extractor.py` pero no refactorizado  
+**Problema:** Usa `psycopg2` directo, no `DatabaseConnection`. No integrado en `DataExtractorManager`
+
+##### **2. `get_licencias_vigentes()` (línea 291)**
+```php
+public static function get_licencias_vigentes($where_legajos)
+```
+**Descripción:** Obtiene licencias vigentes para legajos en período específico  
+**Estado:** ❌ No migrado  
+**Impacto:** Usado cuando `check_lic = true` en validación de legajos
+
+##### **3. `get_cargos_activos_sin_licencia()` (línea 422)**
+```php
+public static function get_cargos_activos_sin_licencia($legajo): array
+```
+**Descripción:** Obtiene cargos activos que no tienen licencias  
+**Estado:** ❌ No migrado
+
+##### **4. `get_cargos_activos_con_licencia_vigente()` (línea 462)**
+```php
+public static function get_cargos_activos_con_licencia_vigente($legajo): array
+```
+**Descripción:** Obtiene cargos activos que tienen licencias vigentes  
+**Estado:** ❌ No migrado
+
+##### **5. `evaluar_condicion_licencia()` (línea 858)**
+```php
+public static function evaluar_condicion_licencia($c1, $c2)
+```
+**Descripción:** Evalúa condiciones de licencia para determinar estado  
+**Estado:** ⚠️ Lógica parcialmente implementada en validación pero no como método separado
+
+### **📋 Tareas Pendientes para Completar Refactor:**
+
+#### **1. Crear `extractors/licencias_extractor.py`**
+```python
+class LicenciasExtractor(BaseExtractor):
+    """Extractor especializado para licencias"""
+    
+    def extract(self, per_anoct: int, per_mesct: int, 
+                legajos: List[int] = None) -> pd.DataFrame:
+        """Extrae licencias de protección integral y vacaciones"""
+        pass
+        
+    def extract_vigentes(self, per_anoct: int, per_mesct: int,
+                        legajos: List[int]) -> pd.DataFrame:
+        """Extrae licencias vigentes para período"""
+        pass
+```
+
+#### **2. Integrar en `DataExtractorManager`**
+```python
+class DataExtractorManager:
+    def __init__(self, db_connection):
+        # ... existentes ...
+        self.licencias_extractor = LicenciasExtractor(db_connection)  # ⚠️ FALTA
+    
+    def extraer_datos_completos(self, ...):
+        # ... existentes ...
+        df_licencias = self.licencias_extractor.extract(...)  # ⚠️ FALTA
+        return {
+            # ... existentes ...
+            'licencias': df_licencias  # ⚠️ FALTA
+        }
+```
+
+#### **3. Agregar queries en `queries/sicoss_queries.py`**
+```python
+class SicossSQLQueries:
+    @staticmethod
+    def get_licencias_protecintegral_vacaciones_query(legajos: List[int], 
+                                                      per_anoct: int, 
+                                                      per_mesct: int) -> str:
+        """Query optimizada para licencias protección integral/vacaciones"""
+        pass
+    
+    @staticmethod
+    def get_licencias_vigentes_query(legajos: List[int],
+                                     per_anoct: int,
+                                     per_mesct: int) -> str:
+        """Query optimizada para licencias vigentes"""
+        pass
+```
+
+#### **4. Usar licencias en `processors/validator.py`**
+El validador ya tiene soporte para `check_lic`, pero necesita recibir los datos de licencias desde el extractor.
+
+### **🎯 Impacto de la Falta:**
+
+- ⚠️ **Validación incompleta:** Cuando `check_lic=True`, no se obtienen licencias desde BD
+- ⚠️ **Inconsistencia:** El sistema tiene código legacy para licencias pero no está integrado
+- ⚠️ **Arquitectura incompleta:** `DataExtractorManager` no extrae todas las fuentes de datos
+
+### **📝 Referencia Legacy:**
+
+- **PHP:** `SicossOptimizado.php` líneas 197-461 (métodos de licencias)
+- **Python Legacy:** `tests_legacy/mapuche_licencias_extractor.py` (370 líneas, necesita refactor)
 
 ---
 
