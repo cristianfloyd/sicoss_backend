@@ -6,5 +6,6 @@ Contiene las clases de configuración:
 """
 
 from .sicoss_config import SicossConfig
+from .mapuche_config import MapucheConfig
 
-__all__ = ['SicossConfig'] 
+__all__ = ['SicossConfig','MapucheConfig'] 
