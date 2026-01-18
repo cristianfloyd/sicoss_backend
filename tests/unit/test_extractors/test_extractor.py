@@ -7,13 +7,12 @@ Script de prueba para validar el SicossDataExtractor
 import configparser
 import time
 
-from extractors.data_extractor_manager import DataExtractorManager
-from mapuche_config import create_mapuche_config
+from config.mapuche_config import create_mapuche_config
 from config.sicoss_config import SicossConfig
 from database.database_connection import DatabaseConnection
+from extractors.data_extractor_manager import DataExtractorManager
 from processors.sicoss_processor import SicossDataProcessor
 from queries.sicoss_queries import SicossSQLQueries
-
 
 
 def test_extractor_legajo_unico():

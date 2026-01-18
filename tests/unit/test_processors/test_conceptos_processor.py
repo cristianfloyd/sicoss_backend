@@ -59,7 +59,7 @@ class ConceptosProcessorTester:
             db_params = config_ini["postgresql"]
 
             # Crear parámetros de conexión con el tipo correcto
-            from mapuche_config import ConnectionParams, create_mapuche_config
+            from config.mapuche_config import ConnectionParams, create_mapuche_config
 
             connection_params: ConnectionParams = {
                 "host": db_params.get("host", "localhost"),
