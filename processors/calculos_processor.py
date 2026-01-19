@@ -3,6 +3,8 @@ from typing import Any
 
 import pandas as pd
 
+from config.sicoss_config import SicossConfig
+
 from .base_processor import BaseProcessor
 
 logger = logging.getLogger(__name__)
@@ -19,6 +21,9 @@ class CalculosSicossProcessor(BaseProcessor):
     - Manejo de TipoDeOperacion con lógica específica
     - Asignaciones familiares
     """
+
+    def __init__(self, config: SicossConfig):
+        super().__init__(config)
 
     def process(self, df_legajos: pd.DataFrame, **kwargs: Any) -> pd.DataFrame:
         """

@@ -1,6 +1,9 @@
 import logging
+from typing import Any
 
 import pandas as pd
+
+from config.sicoss_config import SicossConfig
 
 from .base_processor import BaseProcessor
 
@@ -10,7 +13,10 @@ logger = logging.getLogger(__name__)
 class TopesProcessor(BaseProcessor):
     """Procesador especializado para aplicación de topes"""
 
-    def process(self, df_legajos: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def __init__(self, config: SicossConfig):
+        super().__init__(config)
+
+    def process(self, df_legajos: pd.DataFrame, **kwargs: Any) -> pd.DataFrame:
         """Aplica topes jubilatorios con lógica completa del PHP legacy"""
         logger.info("Aplicando topes jubilatorios con lógica completa...")
 
