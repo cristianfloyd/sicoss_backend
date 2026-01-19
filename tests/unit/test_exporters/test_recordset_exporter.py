@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 test_recordset_exporter.py
 
@@ -15,8 +14,8 @@ try:
     from config.sicoss_config import SicossConfig
     from exporters.recordset_exporter import SicossRecordsetExporter
 except ImportError as e:
-    print(f"❌ Error importando módulos: {e}")
-    print("📋 Asegúrate de que todos los módulos estén implementados")
+    print(f"Error importando módulos: {e}")
+    print("Asegúrate de que todos los módulos estén implementados")
     exit(1)
 
 # Configurar logging
@@ -117,7 +116,7 @@ def test_transformacion_completa():
         assert "resumen" in api_response.data, "Debe contener resumen"
         assert len(api_response.data["legajos"]) == 3, "Debe tener 3 legajos"
 
-        print(f"✅ Transformación exitosa: {api_response.message}")
+        print(f"Transformación exitosa: {api_response.message}")
         print(f"   - Success: {api_response.success}")
         print(f"   - Legajos: {len(api_response.data['legajos'])}")
         print(f"   - Timestamp: {api_response.timestamp}")
@@ -159,13 +158,13 @@ def test_transformacion_completa():
         return True
 
     except Exception as e:
-        print(f"❌ Error en transformación completa: {e}")
+        print(f"Error en transformación completa: {e}")
         return False
 
 
 def test_formatos_respuesta():
     """Test 3: Diferentes formatos de respuesta"""
-    print("\n🧪 TEST 3: Formatos de respuesta")
+    print("\nTEST 3: Formatos de respuesta")
     print("-" * 50)
 
     try:
@@ -175,7 +174,7 @@ def test_formatos_respuesta():
         formatos = ["completo", "resumen", "solo_totales"]
 
         for formato in formatos:
-            print(f"\n   🔄 Probando formato: '{formato}'")
+            print(f"\nProbando formato: '{formato}'")
 
             resultado_laravel = exporter.exportar_para_laravel(
                 resultado_sicoss, formato=formato
@@ -221,17 +220,17 @@ def test_formatos_respuesta():
                     tiene_detalles = "detalles" in primer_legajo
                     print(f"         - Detalles incluidos: {tiene_detalles}")
 
-        print("✅ Todos los formatos funcionan correctamente")
+        print("Todos los formatos funcionan correctamente")
         return True
 
     except Exception as e:
-        print(f"❌ Error en formatos de respuesta: {e}")
+        print(f"Error en formatos de respuesta: {e}")
         return False
 
 
 def test_respuesta_fastapi():
     """Test 4: Respuesta específica para FastAPI"""
-    print("\n🧪 TEST 4: Respuesta FastAPI")
+    print("\nTEST 4: Respuesta FastAPI")
     print("-" * 50)
 
     try:
@@ -261,13 +260,13 @@ def test_respuesta_fastapi():
         return True
 
     except Exception as e:
-        print(f"❌ Error en respuesta FastAPI: {e}")
+        print(f"Error en respuesta FastAPI: {e}")
         return False
 
 
 def test_manejo_errores():
     """Test 5: Manejo de errores"""
-    print("\n🧪 TEST 5: Manejo de errores")
+    print("\nTEST 5: Manejo de errores")
     print("-" * 50)
 
     try:
@@ -296,13 +295,13 @@ def test_manejo_errores():
         return True
 
     except Exception as e:
-        print(f"❌ Error en test de manejo de errores: {e}")
+        print(f"Error en test de manejo de errores: {e}")
         return False
 
 
 def test_integracion_processor():
     """Test 6: Integración con SicossDataProcessor"""
-    print("\n🧪 TEST 6: Integración con SicossDataProcessor")
+    print("\nTEST 6: Integración con SicossDataProcessor")
     print("-" * 50)
 
     try:
@@ -318,7 +317,7 @@ def test_integracion_processor():
 
         # Crear procesador
         processor = SicossDataProcessor(config)
-        print("✅ SicossDataProcessor inicializado con recordset_exporter")
+        print("SicossDataProcessor inicializado con recordset_exporter")
 
         # Verificar que tiene el exporter
         assert hasattr(processor, "recordset_exporter"), (
@@ -355,7 +354,7 @@ def test_integracion_processor():
         }
 
         # Procesar CON respuesta API
-        print("   🚀 Procesando con generación de respuesta API...")
+        print("Procesando con generación de respuesta API...")
         resultado = processor.procesar_datos_extraidos(
             datos=datos_simulados, formato_respuesta="completo"
         )
@@ -375,7 +374,7 @@ def test_integracion_processor():
         print(f"   - Backend: {api_response['metadata']['backend']}")
 
         # Test método directo
-        print("   🎯 Test método generar_respuesta_api directo...")
+        print("Test método generar_respuesta_api directo...")
         respuesta_directa = processor.generar_respuesta_api(resultado, "fastapi")
 
         assert respuesta_directa["api_version"] == "v1", "Debe tener API version"
@@ -390,13 +389,13 @@ def test_integracion_processor():
         return True
 
     except Exception as e:
-        print(f"❌ Error en integración con processor: {e}")
+        print(f"Error en integración con processor: {e}")
         return False
 
 
 def test_performance_basico():
     """Test 7: Performance básico"""
-    print("\n🧪 TEST 7: Performance básico")
+    print("\nTEST 7: Performance básico")
     print("-" * 50)
 
     try:
@@ -455,13 +454,13 @@ def test_performance_basico():
         return True
 
     except Exception as e:
-        print(f"❌ Error en test de performance: {e}")
+        print(f"Error en test de performance: {e}")
         return False
 
 
 def main():
     """Ejecuta todos los tests"""
-    print("🧪 INICIANDO TESTS SICOSS RECORDSET EXPORTER")
+    print("INICIANDO TESTS SICOSS RECORDSET EXPORTER")
     print("=" * 60)
 
     tests = [
@@ -474,7 +473,7 @@ def main():
         test_performance_basico,
     ]
 
-    resultados = []
+    resultados: list[bool] = []
 
     for test_func in tests:
         try:
@@ -482,12 +481,12 @@ def main():
             resultados.append(resultado)
 
             if resultado:
-                print(f"   ✅ {test_func.__name__}: EXITOSO")
+                print(f"    {test_func.__name__}: EXITOSO")
             else:
-                print(f"   ❌ {test_func.__name__}: FALLÓ")
+                print(f"    {test_func.__name__}: FALLÓ")
 
         except Exception as e:
-            print(f"   💥 {test_func.__name__}: ERROR - {e}")
+            print(f"   {test_func.__name__}: ERROR - {e}")
             resultados.append(False)
 
     # Resumen final
@@ -496,15 +495,15 @@ def main():
     porcentaje = (exitosos / total) * 100
 
     print("\n" + "=" * 60)
-    print(f"📊 RESUMEN DE TESTS: {exitosos}/{total} exitosos ({porcentaje:.0f}%)")
+    print(f"RESUMEN DE TESTS: {exitosos}/{total} exitosos ({porcentaje:.0f}%)")
 
     if exitosos == total:
-        print("🎉 TODOS LOS TESTS EXITOSOS - RECORDSET EXPORTER READY FOR API")
-        print("🚀 Listo para implementar FastAPI endpoints")
-        print("🔌 Integración Laravel completamente funcional")
+        print("TODOS LOS TESTS EXITOSOS - RECORDSET EXPORTER READY FOR API")
+        print("Listo para implementar FastAPI endpoints")
+        print("Integración Laravel completamente funcional")
     else:
-        print(f"❌ {total - exitosos} TESTS FALLARON")
-        print("🔧 Revisar implementación antes de usar en producción")
+        print(f"{total - exitosos} TESTS FALLARON")
+        print("Revisar implementación antes de usar en producción")
 
     print("=" * 60)
 
