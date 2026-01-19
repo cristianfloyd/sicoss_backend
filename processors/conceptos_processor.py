@@ -100,6 +100,7 @@ class ConceptosProcessor(BaseProcessor):
             "ImporteSACDoce",
             "ImporteSACAuto",
             "ImporteSACNodo",
+            "AsignacionesFliaresPagadas",
             "PrioridadTipoDeActividad",
             "TipoDeActividad",
             "SACInvestigador",
@@ -136,9 +137,12 @@ class ConceptosProcessor(BaseProcessor):
         # 5. Procesar casos especiales
         df_especiales = self._procesar_casos_especiales(df_expandido)
 
+        # 5.b Procesar Asignaciones Familiares (basado en tipo_conce 'F' del legacy)
+        df_asig_fam = self._procesar_asignaciones_tipo_f(df_conceptos)
+
         # 6. Combinar todos los resultados
         df_combinado = self._combinar_resultados(
-            [df_simples, df_sac, df_investigadores, df_especiales]
+            [df_simples, df_sac, df_investigadores, df_especiales, df_asig_fam]
         )
 
         # 7. Agrupar por legajo
@@ -350,6 +354,24 @@ class ConceptosProcessor(BaseProcessor):
             if resultados
             else pd.DataFrame(columns=["nro_legaj", "campo_sicoss", "valor"])
         )
+
+    def _procesar_asignaciones_tipo_f(self, df_conceptos: pd.DataFrame) -> pd.DataFrame:
+        """
+        Procesa asignaciones familiares basadas en tipo_conce 'F' (Lógica legacy)
+        """
+        if "tipo_conce" not in df_conceptos.columns:
+            return pd.DataFrame(columns=["nro_legaj", "campo_sicoss", "valor"])
+
+        mask_f = df_conceptos["tipo_conce"] == "F"
+        df_f = df_conceptos[mask_f].copy()
+
+        if df_f.empty:
+            return pd.DataFrame(columns=["nro_legaj", "campo_sicoss", "valor"])
+
+        df_f["campo_sicoss"] = "AsignacionesFliaresPagadas"
+        df_f["valor"] = df_f["impp_conce"]
+
+        return df_f[["nro_legaj", "campo_sicoss", "valor"]].copy()
 
     def _combinar_resultados(self, dataframes: List[pd.DataFrame]) -> pd.DataFrame:
         """Combina todos los DataFrames de resultados"""

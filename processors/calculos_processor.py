@@ -117,13 +117,14 @@ class CalculosSicossProcessor(BaseProcessor):
         # ImporteImponible_4 = IMPORTE_IMPON inicial
         df["ImporteImponible_4"] = df["IMPORTE_IMPON"]
 
+        # Inicializar TipoDeOperacion = 1 por defecto (Legacy PHP 1366)
+        df["TipoDeOperacion"] = 1
+
         # Inicializar SAC No Docente
-        df["ImporteSACNoDocente"] = df.get("ImporteSAC", 0)
+        df["ImporteSACNoDocente"] = df.get("ImporteSAC", 0.0)
 
         # Lógica compleja para ImporteImponible_6
-        imp6_series = df.get("ImporteImponible_6", pd.Series([0] * len(df)))
-        if imp6_series is None:
-            imp6_series = pd.Series([0] * len(df))
+        imp6_series = df.get("ImporteImponible_6", pd.Series(0.0, index=df.index))
         mask_tiene_imp6 = imp6_series > 0
 
         if mask_tiene_imp6.any():
@@ -240,73 +241,32 @@ class CalculosSicossProcessor(BaseProcessor):
 
     def _calcular_asignaciones_familiares(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Calcula asignaciones familiares con lógica completa de SICOSS
+        Calcula asignaciones familiares con lógica completa de SICOSS (Sincronizado con legacy PHP).
+
+        La sumatoria ya viene procesada por ConceptosProcessor (basado en tipo_conce 'F').
+        Aquí se aplica la configuración de integración en Bruto si corresponde.
         """
-        logger.info("🔧 Calculando asignaciones familiares...")
+        logger.info("🔧 Procesando asignaciones familiares (lógica legacy)...")
 
-        # Verificar si el legajo tiene cónyuge o hijos (de la extracción original)
-        conyugue_series = df.get("conyugue", pd.Series([0] * len(df)))
-        hijos_series = df.get("hijos", pd.Series([0] * len(df)))
-
-        if conyugue_series is None:
-            conyugue_series = pd.Series([0] * len(df))
-        if hijos_series is None:
-            hijos_series = pd.Series([0] * len(df))
-
-        tiene_conyugue = conyugue_series > 0
-        tiene_hijos = hijos_series > 0
-
-        # Calcular asignaciones familiares basado en:
-        # 1. Cantidad de hijos
-        # 2. Si tiene cónyuge
-        # 3. Conceptos familiares si están presentes
-        asignaciones_base = pd.Series([0.0] * len(df))
-
-        if tiene_hijos.any():
-            # Cálculo básico por hijos (valor referencial - puede ajustarse según normativa)
-            asignaciones_base += hijos_series * 1000.0  # Valor por hijo
-
-        if tiene_conyugue.any():
-            # Asignación por cónyuge
-            asignaciones_base += 500.0 * tiene_conyugue.astype(int)
-
-        # Verificar si hay conceptos específicos de asignaciones familiares
-        conceptos_familiares = df.get(
-            "ASIGNACIONES_FAMILIARES", pd.Series([0] * len(df))
-        )
-        if conceptos_familiares is None:
-            conceptos_familiares = pd.Series([0] * len(df))
-
-        # Si hay conceptos familiares específicos, usar esos valores
-        mask_tiene_conceptos = conceptos_familiares > 0
-        if mask_tiene_conceptos.any():
-            asignaciones_base[mask_tiene_conceptos] = conceptos_familiares[
-                mask_tiene_conceptos
-            ]
-
-        # Asignar el resultado
-        df["AsignacionesFliaresPagadas"] = asignaciones_base
-
-        # Configurar indicador de asignación familiar
-        asignacion_familiar_config = getattr(self.config, "asignacion_familiar", False)
-
-        if asignacion_familiar_config:
-            # Si está configurado para incluir asignaciones familiares
-            df["IncluirAsignacionesFamiliares"] = True
-            total_incluidas = asignaciones_base.sum()
-            logger.info(
-                f"✅ Asignaciones familiares incluidas: Total ${total_incluidas:,.2f}"
-            )
-        else:
-            # Si no está configurado, mantener en 0
+        # El valor ya viene de ConceptosProcessor
+        if "AsignacionesFliaresPagadas" not in df.columns:
             df["AsignacionesFliaresPagadas"] = 0.0
-            df["IncluirAsignacionesFamiliares"] = False
-            logger.info("ℹ️ Asignaciones familiares desactivadas por configuración")
 
-        total_asignaciones = df["AsignacionesFliaresPagadas"].sum()
-        logger.info(
-            f"✅ Asignaciones familiares calculadas - Total: ${total_asignaciones:,.2f}"
-        )
+        # Política de Configuración (PHP Líneas 1576-1579)
+        # Si asignacion_familiar está activado, se suma al bruto y se limpia el campo
+        if getattr(self.config, "asignacion_familiar", False):
+            mask_con_asig = df["AsignacionesFliaresPagadas"] > 0
+            if mask_con_asig.any():
+                df.loc[mask_con_asig, "IMPORTE_BRUTO"] += df.loc[
+                    mask_con_asig, "AsignacionesFliaresPagadas"
+                ]
+                df.loc[mask_con_asig, "AsignacionesFliaresPagadas"] = 0.0
+                logger.info(
+                    f"✅ Asignaciones familiares integradas en IMPORTE_BRUTO para {mask_con_asig.sum()} legajos"
+                )
+
+        total_final = df["AsignacionesFliaresPagadas"].sum()
+        logger.info(f"✅ Asignaciones familiares finales: Total ${total_final:,.2f}")
 
         return df
 
@@ -345,11 +305,8 @@ class CalculosSicossProcessor(BaseProcessor):
         """
         logger.info("🔧 Procesando TipoDeOperacion complejo...")
 
-        # Inicializar TipoDeOperacion = 1 por defecto
-        if "TipoDeOperacion" not in df.columns:
-            df["TipoDeOperacion"] = 1
-
-        # La lógica compleja ya se aplicó en _calcular_importes_imponibles_complejos
+        # La lógica de TipoDeOperacion ya se inicializó en _calcular_importes_imponibles_complejos
+        # y se ajustó según las condiciones de ImporteImponible_6.
         # Aquí se pueden agregar validaciones adicionales
 
         tipos_operacion = df["TipoDeOperacion"].value_counts()
@@ -380,10 +337,8 @@ class CalculosSicossProcessor(BaseProcessor):
         mask_positivo = df["ImporteSueldoMasAdicionales"] > 0
         if mask_positivo.any():
             incremento_solidario = df.get(
-                "IncrementoSolidario", pd.Series([0] * len(df))
+                "IncrementoSolidario", pd.Series(0.0, index=df.index)
             )
-            if incremento_solidario is None:
-                incremento_solidario = pd.Series([0] * len(df))
             df.loc[mask_positivo, "ImporteSueldoMasAdicionales"] -= (
                 incremento_solidario.loc[mask_positivo]
             )

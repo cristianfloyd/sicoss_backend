@@ -9,8 +9,8 @@ Este documento es nuestra **Guía Maestra** para completar el proyecto. Aquí ra
 - ✅ **Core Processing**: 100% (Pandas vectorizado)
 - ✅ **BD Operations**: 100% (PostgreSQL real)
 - ✅ **API Gateway**: 100% (FastAPI + Laravel Ready)
-- 🟡 **Testing**: 33% (Tests unitarios y de integración básicos)
-- 🟡 **Optimización**: 17% (Performance base es excelente, falta carga masiva)
+- 🟢 **Testing**: 50% (Aumentada cobertura y corrección de bugs críticos)
+- 🟡 **Optimización**: 25% (Refinamiento de lógica y paridad lograda)
 - 🟡 **Licencias**: 0% (Refactorización pendiente de arquitectura modular)
 
 ---
@@ -19,8 +19,9 @@ Este documento es nuestra **Guía Maestra** para completar el proyecto. Aquí ra
 
 ### Fase 1: Calidad y Bugs (Inmediato)
 
-- [x] **Fix Bug `conceptos_processor`**: Corregir error `'bool' object has no attribute 'any'` en línea 349.
-- [ ] **Linter & Clean Code**: Resolver warnings de Series/DataFrames y asegurar tipado consistente.
+- [x] **Fix Bug `conceptos_processor`**: Corregir error `'bool' object has no attribute 'any'` en línea 349 y 431.
+- [x] **Paridad Asignaciones Familiares**: Sincronización 100% con lógica legacy (Tipo 'F' + Integración en Bruto).
+- [x] **Linter & Clean Code**: Resolvidos warnings de Pyright ("Unnecessary Comparison") y estandarización de `pd.Series`.
 - [ ] **Tests de Exportación**: Completar la suite de `test_recordset_exporter.py`.
 
 ### Fase 2: Funcionalidad Crítica Pendiente
@@ -48,4 +49,4 @@ Este documento es nuestra **Guía Maestra** para completar el proyecto. Aquí ra
 
 ---
 
-_Última actualización: 2026-01-19_
+_Última actualización: 2026-01-19 (Sesión de Refinamiento de Cálculos)_
