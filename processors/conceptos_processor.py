@@ -313,7 +313,7 @@ class ConceptosProcessor(BaseProcessor):
         if df_inv.empty:
             return pd.DataFrame(columns=["nro_legaj", "campo_sicoss", "valor"])
 
-        resultados = []
+        resultados: List[pd.DataFrame] = []
 
         # ImporteImponible_6 para todos
         resultados.append(
@@ -333,7 +333,7 @@ class ConceptosProcessor(BaseProcessor):
 
     def _procesar_casos_especiales(self, df: pd.DataFrame) -> pd.DataFrame:
         """Procesa casos especiales (tipo 58, etc.)"""
-        resultados = []
+        resultados: List[pd.DataFrame] = []
 
         # Tipo 58 - Seguro Vida Obligatorio (booleano)
         mask_58 = df["tipo_grupo"] == 58
