@@ -167,6 +167,18 @@ class ConceptosProcessor(BaseProcessor):
         def parse_tipos_grupos(
             tipos: Optional[Union[List[Any], str, int, float]],
         ) -> List[int]:
+            """
+            Parsea y normaliza el campo tipos_grupos en una lista de enteros.
+
+            Maneja diversos formatos de entrada (listas, strings, valores numéricos)
+            provenientes de la base de datos o procesos previos.
+
+            Args:
+                tipos: El valor del campo tipos_grupos a procesar.
+
+            Returns:
+                List[int]: Una lista de IDs de tipos de grupos.
+            """
             try:
                 if tipos is None:
                     return []
