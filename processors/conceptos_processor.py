@@ -3,6 +3,8 @@ from typing import Any, List, Optional, Union
 
 import pandas as pd
 
+from config.sicoss_config import SicossConfig
+
 from .base_processor import BaseProcessor
 
 logger = logging.getLogger(__name__)
@@ -11,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ConceptosProcessor(BaseProcessor):
     """Procesador vectorizado de máximo rendimiento para conceptos SICOSS"""
 
-    def __init__(self, config):
+    def __init__(self, config: SicossConfig):
         super().__init__(config)
         self._init_mapeos()
 
@@ -107,7 +109,7 @@ class ConceptosProcessor(BaseProcessor):
         ]
 
     def process(
-        self, df_legajos: pd.DataFrame, df_conceptos: pd.DataFrame, **kwargs
+        self, df_legajos: pd.DataFrame, df_conceptos: pd.DataFrame, **kwargs: Any
     ) -> pd.DataFrame:
         """Procesa conceptos con máximo rendimiento vectorizado"""
         logger.info("🚀 Procesando conceptos con vectorización completa...")

@@ -19,7 +19,7 @@ Este documento es nuestra **Guía Maestra** para completar el proyecto. Aquí ra
 
 ### Fase 1: Calidad y Bugs (Inmediato)
 
-- [ ] **Fix Bug `conceptos_processor`**: Corregir error `'bool' object has no attribute 'any'` en línea 349.
+- [x] **Fix Bug `conceptos_processor`**: Corregir error `'bool' object has no attribute 'any'` en línea 349.
 - [ ] **Linter & Clean Code**: Resolver warnings de Series/DataFrames y asegurar tipado consistente.
 - [ ] **Tests de Exportación**: Completar la suite de `test_recordset_exporter.py`.
 
