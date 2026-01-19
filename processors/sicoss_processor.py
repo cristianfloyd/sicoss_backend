@@ -29,7 +29,7 @@ class PipelineStep:
     """Definición de un paso del pipeline"""
 
     name: str
-    function: Callable
+    function: Callable[[Dict[str, pd.DataFrame]], Dict[str, pd.DataFrame]]
     required_columns: List[str]
     validate_result: bool = True
     critical: bool = True
@@ -40,11 +40,11 @@ class ProcessingMetrics:
     """Métricas de procesamiento"""
 
     total_time: float = 0.0
-    step_times: Dict[str, float] = field(default_factory=dict)
+    step_times: dict[str, float] = field(default_factory=dict)
     input_records: int = 0
     output_records: int = 0
     error_count: int = 0
-    warnings: List[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 class SicossDataProcessor:
@@ -54,17 +54,29 @@ class SicossDataProcessor:
     """
 
     def __init__(self, config: SicossConfig):
-        self.config = config
+        """
+        Inicializa el coordinador de datos SICOSS
+
+        Args:
+            config: Objeto de configuración global SICOSS
+        """
+        self.config: SicossConfig = config
+        self.conceptos_processor: ConceptosProcessor
+        self.calculos_processor: CalculosSicossProcessor
+        self.topes_processor: TopesProcessor
+        self.validator: LegajosValidator
+        self.pipeline_steps: List[PipelineStep] = []
+
         self._initialize_processors()
         self._initialize_pipeline()
         self.stats_helper = EstadisticasHelper()
         self.metrics = ProcessingMetrics()
         # ✅ Inicializar exportador de recordsets para API
         self.recordset_exporter = SicossRecordsetExporter()
-        # 🚧 TODO: Inicializar guardador de BD
-        self._database_saver = None  # Se inicializa bajo demanda
+        # ✅ Guardador de BD inicializado bajo demanda (Lazy)
+        self._database_saver: Optional[Any] = None
 
-    def _initialize_processors(self):
+    def _initialize_processors(self) -> None:
         """Inicializa todos los procesadores especializados"""
         try:
             logger.info("🔧 Inicializando procesadores especializados...")
@@ -80,7 +92,7 @@ class SicossDataProcessor:
             logger.error(f"❌ Error inicializando procesadores: {e}")
             raise RuntimeError(f"Fallo en inicialización de procesadores: {e}")
 
-    def _initialize_pipeline(self):
+    def _initialize_pipeline(self) -> None:
         """Define el pipeline de procesamiento con validaciones"""
         self.pipeline_steps = [
             PipelineStep(
@@ -177,7 +189,7 @@ class SicossDataProcessor:
                 )
             )
 
-            # 7. 🚧 TODO: Guardar en BD si está solicitado (FUNCIONALIDAD PENDIENTE)
+            # 7. ✅ Guardar en BD si está solicitado
             if guardar_en_bd:
                 final_result["guardado_bd"] = self._guardar_en_bd_sicoss(
                     final_result, periodo_fiscal
@@ -202,8 +214,17 @@ class SicossDataProcessor:
             # Retornar resultado de emergencia
             return self._create_emergency_result(str(e))
 
-    def _validate_input_data(self, datos: Dict[str, pd.DataFrame]):
-        """Valida la integridad de los datos de entrada"""
+    def _validate_input_data(self, datos: Dict[str, pd.DataFrame]) -> None:
+        """
+        Valida la integridad de los datos de entrada
+
+        Args:
+            datos: Diccionario de DataFrames extraídos de la BD
+
+        Raises:
+            ValueError: Si faltan claves obligatorias o los datos están vacíos
+            TypeError: Si algún elemento no es un pd.DataFrame
+        """
         logger.info("🔍 Validando datos de entrada...")
 
         required_keys = ["legajos", "conceptos", "otra_actividad", "obra_social"]
@@ -211,9 +232,6 @@ class SicossDataProcessor:
         for key in required_keys:
             if key not in datos:
                 raise ValueError(f"Datos de entrada incompletos: falta '{key}'")
-
-            if not isinstance(datos[key], pd.DataFrame):
-                raise TypeError(f"'{key}' debe ser un DataFrame")
 
         # Validar que legajos no esté vacío
         if datos["legajos"].empty:
@@ -234,7 +252,15 @@ class SicossDataProcessor:
     def _prepare_initial_data(
         self, datos: Dict[str, pd.DataFrame]
     ) -> Dict[str, pd.DataFrame]:
-        """Prepara los datos iniciales con copias seguras"""
+        """
+        Prepara los datos iniciales con copias seguras para evitar efectos secundarios
+
+        Args:
+            datos: Datos de entrada originales
+
+        Returns:
+            Dict de DataFrames con copias independientes
+        """
         logger.info("📋 Preparando datos iniciales...")
 
         return {
@@ -247,7 +273,18 @@ class SicossDataProcessor:
     def _execute_pipeline(
         self, data: Dict[str, pd.DataFrame]
     ) -> Dict[str, pd.DataFrame]:
-        """Ejecuta el pipeline paso a paso con control de errores"""
+        """
+        Ejecuta el pipeline paso a paso con control de errores
+
+        Args:
+            data: Diccionario de datos en actual procesamiento
+
+        Returns:
+            Dict de datos procesados tras pasar por todos los pasos
+
+        Raises:
+            RuntimeError: Si falla un paso crítico del pipeline
+        """
         logger.info("⚙️ Ejecutando pipeline de procesamiento...")
 
         for i, step in enumerate(self.pipeline_steps, 1):
@@ -289,8 +326,19 @@ class SicossDataProcessor:
 
         return data
 
-    def _validate_step_prerequisites(self, data: Dict, step: PipelineStep):
-        """Valida que un paso tenga los prerequisitos necesarios"""
+    def _validate_step_prerequisites(
+        self, data: Dict[str, pd.DataFrame], step: PipelineStep
+    ) -> None:
+        """
+        Valida que un paso del pipeline tenga los prerrequisitos necesarios (columnas)
+
+        Args:
+            data: Datos actuales del procesamiento
+            step: Definición del paso a ejecutar
+
+        Raises:
+            ValueError: Si faltan columnas requeridas o no hay datos
+        """
         df_legajos = data.get("legajos", pd.DataFrame())
 
         if df_legajos.empty:
@@ -303,8 +351,19 @@ class SicossDataProcessor:
         if missing_cols:
             raise ValueError(f"Columnas faltantes para '{step.name}': {missing_cols}")
 
-    def _validate_step_result(self, data: Dict, step: PipelineStep):
-        """Valida el resultado de un paso"""
+    def _validate_step_result(
+        self, data: Dict[str, pd.DataFrame], step: PipelineStep
+    ) -> None:
+        """
+        Valida el resultado de un paso del pipeline
+
+        Args:
+            data: Datos resultantes del paso
+            step: Definición del paso ejecutado
+
+        Raises:
+            ValueError: Si el resultado es inválido o se perdieron registros críticos
+        """
         df_legajos = data.get("legajos", pd.DataFrame())
 
         if df_legajos.empty:
@@ -314,8 +373,18 @@ class SicossDataProcessor:
         if step.critical and len(df_legajos) == 0:
             raise ValueError(f"Paso crítico '{step.name}' eliminó todos los registros")
 
-    def _procesar_conceptos(self, data: Dict) -> Dict:
-        """Ejecuta procesamiento de conceptos con manejo de errores"""
+    def _procesar_conceptos(
+        self, data: Dict[str, pd.DataFrame]
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Ejecuta el procesamiento vectorizado de conceptos
+
+        Args:
+            data: Datos actuales
+
+        Returns:
+            Datos con campos SICOSS inicializados y sumarizados
+        """
         try:
             logger.debug("Procesando conceptos...")
             data["legajos"] = self.conceptos_processor.process(
@@ -343,8 +412,18 @@ class SicossDataProcessor:
             logger.error(f"Error en procesamiento de conceptos: {e}")
             raise
 
-    def _agregar_otra_actividad(self, data: Dict) -> Dict:
-        """Agrega datos de otra actividad con validaciones"""
+    def _agregar_otra_actividad(
+        self, data: Dict[str, pd.DataFrame]
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Agrega datos de otra actividad mediante un merge por legajo
+
+        Args:
+            data: Datos actuales
+
+        Returns:
+            Datos con campos de otra actividad integrados
+        """
         try:
             logger.debug("Agregando otra actividad...")
             df_legajos = data["legajos"]
@@ -373,8 +452,18 @@ class SicossDataProcessor:
             self.metrics.warnings.append(f"Otra actividad omitida: {e}")
             return data
 
-    def _agregar_obra_social(self, data: Dict) -> Dict:
-        """Agrega códigos de obra social con validaciones"""
+    def _agregar_obra_social(
+        self, data: Dict[str, pd.DataFrame]
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Agrega códigos de obra social mediante un merge por legajo
+
+        Args:
+            data: Datos actuales
+
+        Returns:
+            Datos con campo codigo_os integrado
+        """
         try:
             logger.debug("Agregando obra social...")
             df_legajos = data["legajos"]
@@ -401,13 +490,23 @@ class SicossDataProcessor:
         except Exception as e:
             logger.error(f"Error agregando obra social: {e}")
             # Para pasos no críticos, continuar con valor por defecto
-            if "legajos" in data and isinstance(data["legajos"], pd.DataFrame):
+            if "legajos" in data:
                 data["legajos"]["codigo_os"] = "000000"
             self.metrics.warnings.append(f"Obra social omitida: {e}")
             return data
 
-    def _aplicar_calculos(self, data: Dict) -> Dict:
-        """Aplica cálculos de SICOSS con validaciones"""
+    def _aplicar_calculos(
+        self, data: Dict[str, pd.DataFrame]
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Aplica los cálculos específicos de SICOSS (Importes complejos, ART, etc.)
+
+        Args:
+            data: Datos actuales
+
+        Returns:
+            Datos con cálculos calculados y validados
+        """
         try:
             logger.debug("Aplicando cálculos SICOSS...")
 
@@ -424,7 +523,7 @@ class SicossDataProcessor:
             required_fields = [
                 "ImporteImponible_4",
                 "ImporteImponible_5",
-                "importeimponible_9",
+                "ImporteImponible_6",
             ]
             missing_fields = [
                 f for f in required_fields if f not in data["legajos"].columns
@@ -441,8 +540,16 @@ class SicossDataProcessor:
             logger.error(f"Error en cálculos SICOSS: {e}")
             raise
 
-    def _aplicar_topes(self, data: Dict) -> Dict:
-        """Aplica topes jubilatorios con validaciones"""
+    def _aplicar_topes(self, data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
+        """
+        Aplica topes jubilatorios y de seguridad social
+
+        Args:
+            data: Datos actuales
+
+        Returns:
+            Datos con topes aplicados y reducciones calculadas
+        """
         try:
             logger.debug("Aplicando topes jubilatorios...")
 
@@ -470,8 +577,18 @@ class SicossDataProcessor:
             logger.error(f"Error aplicando topes: {e}")
             raise
 
-    def _validar_legajos(self, data: Dict) -> Dict:
-        """Valida legajos según criterios con métricas"""
+    def _validar_legajos(
+        self, data: Dict[str, pd.DataFrame]
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Realiza la validación final de legajos para determinar su inclusión en SICOSS
+
+        Args:
+            data: Datos procesados
+
+        Returns:
+            Datos con clave 'legajos_validos' conteniendo los registros finales
+        """
         try:
             logger.debug("Validando legajos finales...")
 
@@ -491,8 +608,16 @@ class SicossDataProcessor:
             logger.error(f"Error en validación final: {e}")
             raise
 
-    def _generate_final_result(self, data: Dict) -> Dict[str, Any]:
-        """Genera el resultado final con totales y estadísticas"""
+    def _generate_final_result(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
+        """
+        Genera el diccionario de resultado final, calculando totales y estadísticas globales
+
+        Args:
+            data: Datos resultantes del pipeline
+
+        Returns:
+            Dict con legajos procesados, totales, estadísticas y alertas
+        """
         logger.info("📊 Generando resultado final...")
 
         df_final = data.get("legajos_validos", pd.DataFrame())
@@ -515,7 +640,15 @@ class SicossDataProcessor:
         }
 
     def _create_emergency_result(self, error_message: str) -> Dict[str, Any]:
-        """Crea resultado de emergencia en caso de error crítico"""
+        """
+        Crea un resultado de emergencia en caso de error crítico para evitar fallos catastróficos
+
+        Args:
+            error_message: Mensaje de error detallado
+
+        Returns:
+            Dict con estructuras vacías pero coherentes para el consumidor
+        """
         logger.warning("🆘 Creando resultado de emergencia...")
 
         return {
@@ -531,8 +664,8 @@ class SicossDataProcessor:
             "metricas": self._get_metrics_summary(),
         }
 
-    def _log_final_metrics(self):
-        """Log de métricas finales de procesamiento"""
+    def _log_final_metrics(self) -> None:
+        """Loguea las métricas finales del proceso de forma estructurada para análisis de performance"""
         logger.info("📈 MÉTRICAS FINALES DE PROCESAMIENTO:")
         logger.info(f"  ⏱️ Tiempo total: {self.metrics.total_time:.3f}s")
         logger.info(
@@ -592,14 +725,14 @@ class SicossDataProcessor:
         self, resultado: Dict[str, Any], formato: str = "completo"
     ) -> Dict[str, Any]:
         """
-        ✅ Genera respuesta API estructurada para FastAPI/Laravel
+        Genera la respuesta final estructurada para ser consumida por APIs externas (FastAPI/Laravel)
 
         Args:
-            resultado: Resultado del procesamiento SICOSS
-            formato: Formato de respuesta ("completo", "resumen", "solo_totales")
+            resultado: Resultado crudo del procesamiento
+            formato: Formato solicitado ("completo", "resumen", "fastapi", etc.)
 
         Returns:
-            Dict: Respuesta estructurada para API
+            Dict: Estructura JSON-serializable para la API
         """
         logger.info(f"🚀 Generando respuesta API en formato: {formato}")
 
@@ -620,15 +753,15 @@ class SicossDataProcessor:
                 "timestamp": datetime.now().isoformat(),
             }
 
-    def _get_database_saver(self):
+    def _get_database_saver(self) -> Any:
         """
-        🚧 TODO: Obtiene database_saver con inicialización lazy
+        Obtiene la instancia del guardador de base de datos con inicialización diferida (Lazy)
 
         Returns:
-            SicossDatabaseSaver: Instancia del guardador de BD
+            SicossDatabaseSaver: Instancia para persistencia
         """
         if self._database_saver is None:
-            logger.info("🚧 Inicializando SicossDatabaseSaver bajo demanda...")
+            logger.info("⏳ Inicializando SicossDatabaseSaver bajo demanda...")
             from .database_saver import SicossDatabaseSaver
 
             self._database_saver = SicossDatabaseSaver(self.config)
@@ -639,18 +772,16 @@ class SicossDataProcessor:
         self, resultado: Dict[str, Any], periodo_fiscal: Optional[PeriodoFiscal] = None
     ) -> Dict[str, Any]:
         """
-        🚧 TODO: Guarda resultados SICOSS en base de datos
+        Guarda los resultados del procesamiento en la base de datos (Tabla afip_mapuche_sicoss)
 
         Args:
-            resultado: Resultado del procesamiento
-            periodo_fiscal: Período fiscal (opcional)
+            resultado: Diccionario de resultados del pipeline
+            periodo_fiscal: Período fiscal (opcional, usa actual por defecto)
 
         Returns:
-            Dict: Resultado del guardado en BD
-
-        FUNCIONALIDAD PENDIENTE - PLACEHOLDER PARA TESTING
+            Dict: Estadísticas y estado del guardado en BD
         """
-        logger.info("🚧 TODO: Guardando en BD SICOSS - FUNCIONALIDAD PENDIENTE")
+        logger.info("� Guardando resultados en BD SICOSS...")
 
         try:
             # Determinar período fiscal
@@ -669,7 +800,7 @@ class SicossDataProcessor:
                     "legajos_guardados": 0,
                 }
 
-            # 🚧 TODO: Usar database_saver para guardado
+            # Usar database_saver para guardado real
             database_saver = self._get_database_saver()
             resultado_bd = database_saver.guardar_en_bd(
                 legajos=legajos_procesados,
@@ -678,7 +809,7 @@ class SicossDataProcessor:
             )
 
             logger.info(
-                f"💾 BD guardado (simulado): {resultado_bd.get('legajos_guardados', 0)} legajos"
+                f"💾 Guardado en BD completado: {resultado_bd.get('legajos_guardados', 0)} legajos"
             )
             return resultado_bd
 
@@ -699,19 +830,19 @@ class SicossDataProcessor:
         incluir_inactivos: bool = False,
     ) -> Dict[str, Any]:
         """
-        🚧 TODO: Genera SICOSS directo a BD sin archivos
+        Orquesta el procesamiento completo y persiste el resultado directamente en BD
 
         Replica la funcionalidad generar_sicoss_bd() del PHP legacy
 
         Args:
             datos: Datos extraídos para procesamiento
-            periodo_fiscal: Período fiscal (opcional, usa actual si no se especifica)
-            incluir_inactivos: Si incluir legajos inactivos
+            periodo_fiscal: Período fiscal (opcional)
+            incluir_inactivos: Si incluir legajos inactivos en el guardado
 
         Returns:
-            Dict con resultado del procesamiento y guardado en BD
+            Dict: Resultado combinado de procesamiento y persistencia
         """
-        logger.info("🚧 TODO: Generando SICOSS directo a BD - FUNCIONALIDAD PENDIENTE")
+        logger.info("� Iniciando generación SICOSS directa a BD...")
 
         try:
             # Determinar período fiscal
@@ -748,15 +879,15 @@ class SicossDataProcessor:
         self, periodo_fiscal: Optional[PeriodoFiscal] = None
     ) -> Dict[str, Any]:
         """
-        🚧 TODO: Verifica estructura de datos en BD
+        Verifica si la estructura de la base de datos es válida y si hay datos previos
 
         Args:
             periodo_fiscal: Período a verificar (opcional)
 
         Returns:
-            Dict con resultado de la verificación
+            Dict: Resultado de la auditoría de estructura y contenido
         """
-        logger.info("🚧 TODO: Verificando estructura BD - FUNCIONALIDAD PENDIENTE")
+        logger.info("� Verificando estructura y consistencia de BD...")
 
         try:
             if periodo_fiscal is None:

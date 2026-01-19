@@ -8,7 +8,7 @@ Value Object para manejo de períodos fiscales SICOSS
 
 from dataclasses import dataclass
 from datetime import datetime, date
-from typing import Optional, Union
+from typing import Any, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -104,12 +104,7 @@ class PeriodoFiscal:
         """
         logger.info(f"🚧 TODO: Creando PeriodoFiscal desde fecha: {fecha}")
         
-        if isinstance(fecha, datetime):
-            return cls(year=fecha.year, month=fecha.month)
-        elif isinstance(fecha, date):
-            return cls(year=fecha.year, month=fecha.month)
-        else:
-            raise TypeError(f"Tipo de fecha no soportado: {type(fecha)}")
+        return cls(year=fecha.year, month=fecha.month)
     
     @classmethod
     def current(cls) -> 'PeriodoFiscal':
@@ -127,7 +122,7 @@ class PeriodoFiscal:
         return cls(year=now.year, month=now.month)
     
     @classmethod
-    def from_database(cls, db_connection=None) -> 'PeriodoFiscal':
+    def from_database(cls, db_connection: Any = None) -> 'PeriodoFiscal':
         """
         🚧 TODO: Período fiscal desde base de datos
         
@@ -209,9 +204,9 @@ class PeriodoFiscal:
             
         return True
     
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Union[int, str, bool]]:
         """
-        🚧 TODO: Convierte a diccionario para serialización
+        Convierte a diccionario para serialización
         
         Returns:
             dict: Representación en diccionario

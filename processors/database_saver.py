@@ -18,6 +18,7 @@ import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
+from config.sicoss_config import SicossConfig
 from database.database_connection import DatabaseConnection
 from value_objects.periodo_fiscal import PeriodoFiscal
 
@@ -35,7 +36,7 @@ class SicossDatabaseSaver:
     - mapear_legajo_a_modelo() (PHP línea 3691)
     """
 
-    def __init__(self, config=None, db_connection: Optional[DatabaseConnection] = None):
+    def __init__(self, config: Optional[SicossConfig] = None, db_connection: Optional[DatabaseConnection] = None):
         """
         Inicializa el guardador de base de datos
 
@@ -274,6 +275,9 @@ class SicossDatabaseSaver:
 
         try:
             # 1. Procesar datos con el pipeline normal
+            if self.config is None:
+                raise ValueError("Se requiere configuración SICOSS")
+
             from processors.sicoss_processor import SicossDataProcessor
 
             processor = SicossDataProcessor(self.config)
@@ -927,7 +931,7 @@ class SicossDatabaseSaver:
 
             resultado = self.db.execute_query(verificacion_query)
 
-            if resultado and len(resultado) > 0 and resultado[0]["existe"] > 0:
+            if not resultado.empty and int(resultado.iloc[0]["existe"]) > 0:
                 logger.info(
                     f"✅ Tabla {self.schema}.{self.tabla_sicoss} verificada y disponible"
                 )

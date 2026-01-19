@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, List
 
 import pandas as pd
 
@@ -17,13 +17,25 @@ class TopesProcessor(BaseProcessor):
         super().__init__(config)
 
     def process(self, df_legajos: pd.DataFrame, **kwargs: Any) -> pd.DataFrame:
-        """Aplica topes jubilatorios con lógica completa del PHP legacy"""
-        logger.info("Aplicando topes jubilatorios con lógica completa...")
+        """
+        Aplica topes jubilatorios con lógica completa del PHP legacy
+
+        Args:
+            df_legajos: DataFrame de legajos a procesar
+            **kwargs: Parámetros adicionales
+
+        Returns:
+            pd.DataFrame: DataFrame con topes aplicados y campos recalculados
+        """
+        logger.info("🔧 Aplicando topes jubilatorios con lógica completa...")
+
+        if df_legajos.empty:
+            return df_legajos
 
         df = df_legajos.copy()
 
-        if not self.config.trunca_tope:
-            logger.info("Topes desactivados en configuración")
+        if not getattr(self.config, "trunca_tope", True):
+            logger.info("🚫 Topes desactivados en configuración")
             return df
 
         # Pipeline completo de topes (siguiendo orden PHP legacy)
@@ -40,7 +52,15 @@ class TopesProcessor(BaseProcessor):
         return df
 
     def _aplicar_topes_patronales(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Aplica topes patronales (SAC + Imponible sin SAC)"""
+        """
+        Aplica topes patronales (SAC + Imponible sin SAC)
+
+        Args:
+            df: DataFrame con importes calculados
+
+        Returns:
+            pd.DataFrame: DataFrame con topes aplicados
+        """
         # Asegurar que las columnas requeridas existan
         for campo in [
             "ImporteSAC",
@@ -89,8 +109,17 @@ class TopesProcessor(BaseProcessor):
         return df
 
     def _aplicar_topes_personales_complejos(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Aplica topes personales complejos (PHP líneas 1135-1165)"""
-        if not self.config.trunca_tope:
+        """
+        Aplica topes personales complejos siguiendo la lógica específica del PHP (líneas 1135-1165).
+        Maneja legajos con y sin SAC de forma diferenciada.
+
+        Args:
+            df: DataFrame con importes brutos e imponibles base
+
+        Returns:
+            pd.DataFrame: DataFrame con IMPORTE_IMPON ajustado a topes personales
+        """
+        if not getattr(self.config, "trunca_tope", True):
             return df
 
         # Inicializar campos necesarios
@@ -105,16 +134,16 @@ class TopesProcessor(BaseProcessor):
 
         # Configurar ImporteSACNoDocente si no existe
         if df["ImporteSACNoDocente"].sum() == 0:
-            df["ImporteSACNoDocente"] = df.get("ImporteSAC", 0)
+            df["ImporteSACNoDocente"] = df.get("ImporteSAC", 0.0)
 
         # Configurar IMPORTE_IMPON inicial si no existe
         if df["IMPORTE_IMPON"].sum() == 0:
-            df["IMPORTE_IMPON"] = df.get("ImporteImponiblePatronal", 0)
+            df["IMPORTE_IMPON"] = df.get("ImporteImponiblePatronal", 0.0)
 
         tope_jubil_personal_base = self.config.tope_jubilatorio_personal
         tope_sac_personal = self.config.tope_sac_jubilatorio_pers
 
-        # Calcular tope personal dinámico basado en si tiene SAC
+        # Calcular tope personal dinámico basado en si tiene SAC (Vectorizado)
         df["tope_jubil_personal_dinamico"] = tope_jubil_personal_base
         mask_tiene_sac = df["ImporteSAC"] > 0
         df.loc[mask_tiene_sac, "tope_jubil_personal_dinamico"] = (
@@ -167,43 +196,50 @@ class TopesProcessor(BaseProcessor):
         return df
 
     def _aplicar_categorias_diferenciales(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Aplica categorías diferenciales (PHP líneas 1167-1170)"""
+        """
+        Aplica categorías diferenciales (PHP líneas 1167-1170)
+        Si un legajo tiene categoría diferencial, su importe imponible se setea en 0.
+        """
         try:
-            # Obtener categorías diferenciales de configuración
-            categorias_dif = self._obtener_categorias_diferenciales()
+            # 1. Obtener categorías diferenciales de configuración
+            categorias_dif = getattr(self.config, "categorias_diferenciales", [])
+            
+            if not categorias_dif:
+                categorias_dif = self._obtener_categorias_diferenciales()
 
             if not categorias_dif:
-                logger.info("No hay categorías diferenciales configuradas")
+                logger.debug("No hay categorías diferenciales configuradas")
                 return df
 
-            # Verificar qué legajos tienen categorías diferenciales
-            df["es_categoria_diferencial"] = df["nro_legaj"].apply(
-                lambda legajo: self._es_categoria_diferencial(legajo, categorias_dif)
+            # 2. Obtener lista de legajos afectados en una sola consulta (Optimización Vectorizada)
+            legajos_diferenciales = self._obtener_legajos_diferenciales_bulk(
+                df["nro_legaj"].tolist(), categorias_dif
             )
 
-            mask_diferencial = df["es_categoria_diferencial"]
+            if not legajos_diferenciales:
+                return df
+
+            # 3. Aplicar tope a los legajos identificados
+            mask_diferencial = df["nro_legaj"].isin(legajos_diferenciales)
 
             if mask_diferencial.any():
-                logger.info(
-                    f"Aplicando categorías diferenciales: {mask_diferencial.sum()} legajos"
-                )
-                logger.info(
-                    f"Legajos afectados: {df.loc[mask_diferencial, 'nro_legaj'].tolist()}"
-                )
-
+                count = mask_diferencial.sum()
+                logger.info(f"✅ Aplicando categorías diferenciales a {count} legajos")
                 # Según PHP: si es categoría diferencial → IMPORTE_IMPON = 0
-                df.loc[mask_diferencial, "IMPORTE_IMPON"] = 0
-
-            # Limpiar columna temporal
-            df.drop("es_categoria_diferencial", axis=1, inplace=True)
+                df.loc[mask_diferencial, "IMPORTE_IMPON"] = 0.0
 
         except Exception as e:
-            logger.warning(f"Error aplicando categorías diferenciales: {e}")
+            logger.warning(f"⚠️ Error aplicando categorías diferenciales: {e}")
 
         return df
 
-    def _obtener_categorias_diferenciales(self) -> list:
-        """Obtiene las categorías diferenciales desde la configuración"""
+    def _obtener_categorias_diferenciales(self) -> List[str]:
+        """
+        Obtiene las categorías diferenciales definidas en la configuración Mapuche.
+
+        Returns:
+            List[str]: Lista de códigos de categorías diferenciales.
+        """
         try:
             # Intentar obtener desde MapucheConfig
             import configparser
@@ -212,6 +248,9 @@ class TopesProcessor(BaseProcessor):
 
             config_ini = configparser.ConfigParser()
             config_ini.read("database.ini")
+            if "postgresql" not in config_ini:
+                return []
+
             db_params = config_ini["postgresql"]
 
             connection_params: ConnectionParams = {
@@ -229,25 +268,40 @@ class TopesProcessor(BaseProcessor):
                 return [cat.strip() for cat in categorias_str.split(",") if cat.strip()]
 
         except Exception as e:
-            logger.warning(f"No se pudieron obtener categorías diferenciales: {e}")
+            logger.warning(f"⚠️ No se pudieron obtener categorías diferenciales: {e}")
 
         return []
 
-    def _es_categoria_diferencial(self, nro_legaj: int, categorias_dif: list) -> bool:
-        """Verifica si un legajo tiene categoría diferencial"""
+    def _obtener_legajos_diferenciales_bulk(
+        self, lista_legajos: List[int], categorias_dif: List[str]
+    ) -> List[int]:
+        """
+        Verifica qué legajos de la lista tienen categoría diferencial en una sola consulta.
+        Optimización para eliminar el problema N+1.
+
+        Args:
+            lista_legajos: Lista de IDs de legajos a verificar
+            categorias_dif: Lista de códigos de categorías a buscar
+
+        Returns:
+            List[int]: Lista de legajos que efectivamente tienen categoría diferencial
+        """
+        if not lista_legajos or not categorias_dif:
+            return []
+
         try:
             from database.database_connection import DatabaseConnection
 
-            # Crear conexión temporal para la consulta
             db = DatabaseConnection()
 
-            # Consultar la categoría del legajo
+            legajos_str = ",".join(map(str, lista_legajos))
             categorias_in_clause = "','".join(categorias_dif)
+
             query = f"""
-            SELECT COUNT(*) as count
+            SELECT DISTINCT dh01.nro_legaj
             FROM mapuche.dh01 dh01
             INNER JOIN mapuche.dh03 dh03 ON dh01.nro_legaj = dh03.nro_legaj
-            WHERE dh01.nro_legaj = {nro_legaj}
+            WHERE dh01.nro_legaj IN ({legajos_str})
               AND dh03.codc_categ IN ('{categorias_in_clause}')
               AND mapuche.map_es_cargo_activo(dh03.nro_cargo)
             """
@@ -256,24 +310,28 @@ class TopesProcessor(BaseProcessor):
             db.close()
 
             if not resultado.empty:
-                return resultado.iloc[0]["count"] > 0
+                return resultado["nro_legaj"].tolist()
 
         except Exception as e:
-            logger.warning(
-                f"Error verificando categoría diferencial para legajo {nro_legaj}: {e}"
-            )
+            logger.warning(f"⚠️ Error en consulta bulk de categorías diferenciales: {e}")
 
-        return False
+        return []
 
     def _aplicar_topes_otra_actividad(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Aplica topes de otra actividad (PHP líneas 1192-1220)"""
+        """
+        Aplica topes de otra actividad (PHP líneas 1192-1220)
+        Considera los ingresos externos para no exceder el tope máximo imponible sumado.
+
+        Args:
+            df: DataFrame con importes internos
+
+        Returns:
+            pd.DataFrame: DataFrame con IMPORTE_IMPON ajustado por actividad externa
+        """
         # Inicializar campos de otra actividad si no existen
         for campo in ["ImporteBrutoOtraActividad", "ImporteSACOtraActividad"]:
             if campo not in df.columns:
                 df[campo] = 0.0
-
-        # TODO: En implementación real, consultar sicoss::otra_actividad($legajo)
-        # Por ahora usamos los valores ya existentes en el DataFrame
 
         mask_tiene_otra_actividad = (df["ImporteBrutoOtraActividad"] != 0) | (
             df["ImporteSACOtraActividad"] != 0
@@ -339,7 +397,15 @@ class TopesProcessor(BaseProcessor):
         return df
 
     def _aplicar_topes_otros_aportes(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Aplica topes de otros aportes (PHP líneas 1226-1240)"""
+        """
+        Aplica topes de otros aportes (PHP líneas 1226-1240)
+
+        Args:
+            df: DataFrame actual
+
+        Returns:
+            pd.DataFrame: DataFrame con ImporteImponible_4 ajustado
+        """
         # Inicializar campos necesarios
         for campo in [
             "ImporteSACOtroAporte",
@@ -351,10 +417,10 @@ class TopesProcessor(BaseProcessor):
                 df[campo] = 0.0
 
         if df["ImporteSACOtroAporte"].sum() == 0:
-            df["ImporteSACOtroAporte"] = df.get("ImporteSAC", 0)
+            df["ImporteSACOtroAporte"] = df.get("ImporteSAC", 0.0)
 
         if df["ImporteImponible_4"].sum() == 0:
-            df["ImporteImponible_4"] = df.get("IMPORTE_IMPON", 0)
+            df["ImporteImponible_4"] = df.get("IMPORTE_IMPON", 0.0)
 
         # Tope SAC otros aportes
         tope_sac_otro_aporte = self.config.tope_sac_jubilatorio_otro_ap
@@ -399,7 +465,15 @@ class TopesProcessor(BaseProcessor):
         return df
 
     def _aplicar_casos_especiales(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Aplica casos especiales (PHP líneas 1243-1246)"""
+        """
+        Aplica casos especiales definidos por combinaciones de campos (PHP líneas 1243-1246)
+
+        Args:
+            df: DataFrame con cálculos intermedios
+
+        Returns:
+            pd.DataFrame: DataFrame con ajustes por casos especiales aplicados
+        """
         # Inicializar campos si no existen
         for campo in ["ImporteImponible_6", "TipoDeOperacion"]:
             if campo not in df.columns:
@@ -414,26 +488,37 @@ class TopesProcessor(BaseProcessor):
             logger.info(
                 f"Aplicando caso especial ImporteImponible_6: {mask_caso_especial.sum()} legajos"
             )
-            df.loc[mask_caso_especial, "IMPORTE_IMPON"] = 0
+            df.loc[mask_caso_especial, "IMPORTE_IMPON"] = 0.0
 
         return df
 
     def _calcular_campos_finales(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calcula campos finales (PHP líneas 1248-1268)"""
+        """
+        Calcula los importes imponibles finales tras aplicar todos los topes (PHP líneas 1248-1268)
+
+        Args:
+            df: DataFrame con todos los topes previos aplicados
+
+        Returns:
+            pd.DataFrame: DataFrame con ImporteImponibleSinSAC y IMPORTE_IMPON finales
+        """
         # Recalcular ImporteImponibleSinSAC después de todos los ajustes
-        df["ImporteImponibleSinSAC"] = df.get("IMPORTE_IMPON", 0) - df.get(
-            "ImporteSACNoDocente", 0
+        df["ImporteImponibleSinSAC"] = df.get("IMPORTE_IMPON", 0.0) - df.get(
+            "ImporteSACNoDocente", 0.0
         )
 
         # Aplicar tope final a ImporteImponibleSinSAC si es necesario
         tope_jubil_personal = self.config.tope_jubilatorio_personal
         tope_sac_pers = self.config.tope_sac_jubilatorio_pers
 
-        # Calcular tope dinámico final
+        # Calcular tope dinámico final (Vectorizado)
         df["tope_final"] = tope_jubil_personal
-        mask_tiene_sac = df.get("ImporteSAC", 0) > 0
+        mask_tiene_sac = df.get("ImporteSAC", 0.0) > 0
         df.loc[mask_tiene_sac, "tope_final"] = tope_jubil_personal + tope_sac_pers
-        df.loc[~mask_tiene_sac, "tope_final"] = tope_jubil_personal
+
+        # Usamos máscara inversa explícita para evitar advertencia de linter sobre ~ en bool (confusión de tipo)
+        mask_no_tiene_sac = df.get("ImporteSAC", 0.0) <= 0
+        df.loc[mask_no_tiene_sac, "tope_final"] = tope_jubil_personal
 
         # Aplicar tope final
         mask_excede_final = df["ImporteImponibleSinSAC"] > df["tope_final"]
@@ -457,8 +542,16 @@ class TopesProcessor(BaseProcessor):
         return df
 
     def _recalcular_importe_bruto(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Recalcula importe bruto después de aplicar topes"""
+        """
+        Recalcula el importe bruto final para asegurar consistencia tras aplicaciones de topes
+
+        Args:
+            df: DataFrame final
+
+        Returns:
+            pd.DataFrame: DataFrame con IMPORTE_BRUTO actualizado
+        """
         df["IMPORTE_BRUTO"] = df["ImporteImponiblePatronal"] + df.get(
-            "ImporteNoRemun", 0
+            "ImporteNoRemun", 0.0
         )
         return df

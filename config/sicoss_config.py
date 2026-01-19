@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Optional, List
 
 @dataclass
 class SicossConfig:
@@ -12,6 +13,9 @@ class SicossConfig:
     check_sin_activo: bool = False
     asignacion_familiar: bool = False
     trabajador_convencionado: str = "S"
+    variantes_vacaciones: Optional[str] = None
+    variantes_protecintegral: Optional[str] = None
+    categorias_diferenciales: List[str] = field(default_factory=list)
     
     @property
     def tope_sac_jubilatorio_pers(self) -> float:
