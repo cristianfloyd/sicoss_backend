@@ -224,16 +224,21 @@ class ConceptosProcessor(BaseProcessor):
 
         df["tipos_grupos_parsed"] = df["tipos_grupos"].apply(parse_tipos_grupos)
 
-        # Explotar array en múltiples filas
-        df_exploded = df.explode("tipos_grupos_parsed")
+        # Filtrar filas con listas vacías antes de explode (evita errores de pandas)
+        # También asegurar que todos los valores sean enteros válidos
+        def tiene_tipos_validos(x):
+            """Verifica si la lista tiene tipos válidos"""
+            if not isinstance(x, list):
+                return False
+            if len(x) == 0:
+                return False
+            # Verificar que todos los elementos sean enteros válidos
+            return all(isinstance(t, (int, float)) and pd.notna(t) for t in x)
 
-        # Filtrar filas válidas
-        mask_valid = (df_exploded["tipos_grupos_parsed"].notna()) & (
-            df_exploded["tipos_grupos_parsed"] != ""
-        )
-        df_exploded = df_exploded[mask_valid].copy()
+        mask_no_vacias = df["tipos_grupos_parsed"].apply(tiene_tipos_validos)
+        df_con_tipos = df[mask_no_vacias].copy()
 
-        if df_exploded.empty:
+        if df_con_tipos.empty:
             empty_df = pd.DataFrame()
             for col in [
                 "nro_legaj",
@@ -245,13 +250,100 @@ class ConceptosProcessor(BaseProcessor):
                 empty_df[col] = pd.Series(dtype="object")
             return empty_df
 
-        df_exploded["tipo_grupo"] = pd.to_numeric(
-            df_exploded["tipos_grupos_parsed"], errors="coerce"
+        # Limpiar y normalizar las listas para asegurar que solo contengan enteros
+        df_con_tipos["tipos_grupos_parsed"] = df_con_tipos["tipos_grupos_parsed"].apply(
+            lambda x: [int(t) for t in x if isinstance(t, (int, float)) and pd.notna(t)]
         )
-        df_exploded["tipo_grupo"] = df_exploded["tipo_grupo"].astype("Int64")
+        # Filtrar nuevamente por si alguna lista quedó vacía después de la limpieza
+        mask_no_vacias_final = df_con_tipos["tipos_grupos_parsed"].apply(
+            lambda x: len(x) > 0
+        )
+        df_con_tipos = df_con_tipos[mask_no_vacias_final].copy()
 
-        # Filtrar tipos válidos
-        df_exploded = df_exploded[pd.notna(df_exploded["tipo_grupo"])].copy()
+        if df_con_tipos.empty:
+            empty_df = pd.DataFrame()
+            for col in [
+                "nro_legaj",
+                "impp_conce",
+                "codn_conce",
+                "codigoescalafon",
+                "tipo_grupo",
+            ]:
+                empty_df[col] = pd.Series(dtype="object")
+            return empty_df
+
+        # OPTIMIZACIÓN DE RENDIMIENTO: Intentar usar explode() primero (más rápido)
+        # Si falla, usar método manual con itertuples() como fallback
+        # Para 1.6M filas, explode() debería ser ~50-100x más rápido que itertuples()
+        try:
+            # Intentar usar explode() - método vectorizado más rápido
+            df_exploded = df_con_tipos.explode("tipos_grupos_parsed")
+
+            # Filtrar filas válidas (None/NaN se convierten en NaN después de explode)
+            mask_valid = df_exploded["tipos_grupos_parsed"].notna()
+            df_exploded = df_exploded[mask_valid].copy()
+
+            if df_exploded.empty:
+                empty_df = pd.DataFrame()
+                for col in [
+                    "nro_legaj",
+                    "impp_conce",
+                    "codn_conce",
+                    "codigoescalafon",
+                    "tipo_grupo",
+                ]:
+                    empty_df[col] = pd.Series(dtype="object")
+                return empty_df
+
+            # Convertir a tipo_grupo (ya son enteros, pero asegurar tipo)
+            df_exploded["tipo_grupo"] = pd.to_numeric(
+                df_exploded["tipos_grupos_parsed"], errors="coerce"
+            )
+            df_exploded = df_exploded[pd.notna(df_exploded["tipo_grupo"])].copy()
+            df_exploded["tipo_grupo"] = df_exploded["tipo_grupo"].astype("Int64")
+
+        except (TypeError, ValueError, AttributeError) as e:
+            # Fallback: usar método manual con itertuples() si explode() falla
+            # itertuples() es ~10-50x más rápido que iterrows() para datasets grandes
+            logger.warning(
+                f"explode() falló ({type(e).__name__}: {e}), usando método manual. "
+                "Esto puede ser más lento para datasets grandes."
+            )
+            rows_expanded = []
+            for row in df_con_tipos.itertuples(index=False):
+                tipos_list = row.tipos_grupos_parsed
+                if isinstance(tipos_list, list) and len(tipos_list) > 0:
+                    # Acceder a atributos de namedtuple (más rápido que dict lookup)
+                    nro_legaj = row.nro_legaj
+                    impp_conce = row.impp_conce
+                    codn_conce = row.codn_conce
+                    codigoescalafon = getattr(row, "codigoescalafon", "")
+
+                    for tipo in tipos_list:
+                        if isinstance(tipo, (int, float)) and pd.notna(tipo):
+                            rows_expanded.append(
+                                {
+                                    "nro_legaj": nro_legaj,
+                                    "impp_conce": impp_conce,
+                                    "codn_conce": codn_conce,
+                                    "codigoescalafon": codigoescalafon,
+                                    "tipo_grupo": int(tipo),
+                                }
+                            )
+
+            if not rows_expanded:
+                empty_df = pd.DataFrame()
+                for col in [
+                    "nro_legaj",
+                    "impp_conce",
+                    "codn_conce",
+                    "codigoescalafon",
+                    "tipo_grupo",
+                ]:
+                    empty_df[col] = pd.Series(dtype="object")
+                return empty_df
+
+            df_exploded = pd.DataFrame(rows_expanded)
 
         return df_exploded[
             ["nro_legaj", "impp_conce", "codn_conce", "codigoescalafon", "tipo_grupo"]
@@ -490,7 +582,6 @@ class ConceptosProcessor(BaseProcessor):
             "ImporteSACNoDocente": "ImporteSAC",  # Copia de ImporteSAC
             "ImporteImponible_4": "IMPORTE_IMPON",  # Copia de IMPORTE_IMPON
             "ImporteImponible_5": "IMPORTE_IMPON",  # Copia de IMPORTE_IMPON
-            "ImporteImponible_6": 0.0,  # Asegurar que siempre existe
             "TipoDeOperacion": 1,
             "ImporteSueldoMasAdicionales": 0.0,
             "ImporteSACOtraActividad": 0.0,
@@ -505,6 +596,13 @@ class ConceptosProcessor(BaseProcessor):
             else:
                 # Es un valor constante
                 df[campo] = valor
+
+        # ImporteImponible_6: solo inicializar si no existe (puede venir de investigadores)
+        # Si ya existe, solo llenar NaN con 0.0
+        if "ImporteImponible_6" not in df.columns:
+            df["ImporteImponible_6"] = 0.0
+        else:
+            df["ImporteImponible_6"] = df["ImporteImponible_6"].fillna(0.0)
 
         # 9. Calcular ImporteSueldoMasAdicionales (fórmula específica)
         df["ImporteSueldoMasAdicionales"] = (
