@@ -23,14 +23,35 @@
 ## 4. Suite de Tests (Máxima Cobertura)
 
 - [x] **Unit Tests Processors**: 15/15 tests pasando.
-- [ ] **`test_licencias_extractor.py`**: Crear tests unitarios e integración.
+- [x] **`test_licencias_extractor.py`**: Crear tests unitarios e integración.
+  - ✅ **21 tests unitarios completos** cubriendo todos los métodos y casos de borde
+  - ✅ **2 tests de integración** (requieren BD real, marcados con @pytest.mark.integration)
+  - ✅ **Cobertura completa**: extract(), extract_for_legajos(), manejo de errores, casos de borde
+  - ✅ **Todos los tests unitarios pasan** (21/21)
 - [x] **`tests/processors/test_conceptos_processor.py`**: Aumentar cobertura a >90%.
   - ✅ **40 tests unitarios completos** cubriendo todos los métodos principales
   - ✅ **Todos los tests pasan** (40/40) sin coverage
   - ⚠️ **WARNING**: Coverage (pytest-cov/coverage) tiene un bug de compatibilidad con pandas 2.3.3/numpy 2.3.4 que causa errores `_NoValueType` al interceptar operaciones internas. El código funciona correctamente en producción (sin coverage). Para medir cobertura real, se recomienda usar herramientas alternativas o esperar fix de compatibilidad.
-- [ ] **`tests/processors/test_calculos_processor.py`**: Validar casos de borde (ImporteImponible_6, SAC).
-- [ ] **`tests/processors/test_sicoss_processor.py`**: Test de integración completo del pipeline.
-- [ ] **Validación Legacy**: Script para comparar salida TXT del refactor vs salida TXT del PHP original.
+- [x] **`tests/processors/test_calculos_processor.py`**: Validar casos de borde (ImporteImponible_6, SAC).
+  - ✅ **14 tests completos** cubriendo todos los casos de borde
+  - ✅ **ImporteImponible_6**: TipoDeOperacion = 2, tolerancia <= 5, porcentaje diferencial, casos límite
+  - ✅ **SAC**: ImporteSACNoDocente con/sin SACInvestigador, ImporteSACOtroAporte
+  - ✅ **Tests de integración**: casos combinados con múltiples legajos
+  - ✅ **Todos los tests pasan** (14/14)
+- [x] **`tests/processors/test_sicoss_processor.py`**: Test de integración completo del pipeline.
+  - ✅ **17 tests completos** cubriendo todo el pipeline end-to-end
+  - ✅ **Tests unitarios**: ejecución del pipeline, manejo de errores, validación de entrada
+  - ✅ **Tests de integración**: pipeline completo, cada paso individual, campos calculados, métricas
+  - ✅ **Tests de casos de borde**: datos vacíos, conceptos vacíos, errores en pasos críticos/no críticos
+  - ✅ **Validación de consistencia**: campos calculados, múltiples legajos
+  - ✅ **Todos los tests pasan** (17/17)
+- [x] **Validación Legacy**: Script para comparar salida TXT del refactor vs salida TXT del PHP original.
+  - ✅ **Script completo**: `scripts/validacion_legacy_txt.py`
+  - ✅ **ExportadorTXT**: Genera archivos TXT desde el sistema refactorizado
+  - ✅ **ComparadorTXT**: Compara archivos TXT línea por línea
+  - ✅ **Análisis de diferencias**: Identifica posiciones y tipos de diferencias
+  - ✅ **Reporte detallado**: Genera reporte con estadísticas y diferencias
+  - ✅ **Modos de uso**: Generar desde refactor o comparar archivos existentes
 
 ## 5. Optimizaciones Pendientes
 
