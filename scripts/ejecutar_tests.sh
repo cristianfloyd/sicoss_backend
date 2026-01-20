@@ -79,7 +79,16 @@ case "${1:-all}" in
     "quick")
         echo -e "${YELLOW}📋 Ejecutando tests rápidos (sin integración)${NC}"
         echo ""
-        run_tests "tests/unit/test_extractors/test_licencias_extractor.py -k 'not integration'" "Tests de LicenciasExtractor (sin BD)"
+        echo -e "${YELLOW}📋 Tests de LicenciasExtractor (sin BD)${NC}"
+        echo "Ejecutando: pytest tests/unit/test_extractors/test_licencias_extractor.py -k 'not integration'"
+        echo ""
+        if python -m pytest "tests/unit/test_extractors/test_licencias_extractor.py" -k "not integration" -v --no-cov; then
+            echo -e "${GREEN}✅ Tests pasaron exitosamente${NC}"
+            echo ""
+        else
+            echo -e "${RED}❌ Algunos tests fallaron${NC}"
+            echo ""
+        fi
         run_tests "tests/unit/test_processors/test_calculos_processor_unit.py" "Tests de CalculosProcessor"
         run_tests "tests/unit/test_processors/test_sicoss_processor_unit.py" "Tests de SicossDataProcessor"
         ;;
