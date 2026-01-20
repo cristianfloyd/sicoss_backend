@@ -344,10 +344,29 @@ class ConceptosProcessor(BaseProcessor):
                 return empty_df
 
             df_exploded = pd.DataFrame(rows_expanded)
+            # Asegurar que todas las columnas necesarias existen
+            required_cols = [
+                "nro_legaj",
+                "impp_conce",
+                "codn_conce",
+                "codigoescalafon",
+                "tipo_grupo",
+            ]
+            for col in required_cols:
+                if col not in df_exploded.columns:
+                    df_exploded[col] = pd.Series(
+                        dtype="object" if col == "codigoescalafon" else "float64"
+                    )
 
-        return df_exploded[
-            ["nro_legaj", "impp_conce", "codn_conce", "codigoescalafon", "tipo_grupo"]
-        ].copy()
+        # Retornar solo las columnas necesarias (evitar problemas con coverage)
+        required_cols = [
+            "nro_legaj",
+            "impp_conce",
+            "codn_conce",
+            "codigoescalafon",
+            "tipo_grupo",
+        ]
+        return df_exploded[required_cols].copy()
 
     def _procesar_casos_simples(self, df: pd.DataFrame) -> pd.DataFrame:
         """Procesa casos simples con mapeo directo"""
