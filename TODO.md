@@ -18,7 +18,11 @@
 - [x] **Migración**: Migrado de `tests_legacy/mapuche_licencias_extractor.py`.
 - [x] **Integración**: Conectado a `DataExtractorManager`.
 - [x] **Configuración**: Añadidos parámetros `variantes_vacaciones` y `variantes_protecintegral` a `SicossConfig`.
-- [ ] **Tests de Integración**: Validar con datos reales de BD.
+- [x] **Tests de Integración**: Validar con datos reales de BD.
+  - ✅ **2 tests de integración** implementados y validados con BD de prueba
+  - ✅ **Limitación de legajos** (5 y 3 legajos respectivamente) para tests rápidos y controlados
+  - ✅ **Obtención automática de legajos** desde BD real para mayor robustez
+  - ✅ **Tests pasan correctamente** con datos reales (2/2)
 
 ## 4. Suite de Tests (Máxima Cobertura)
 
@@ -55,5 +59,8 @@
 
 ## 5. Optimizaciones Pendientes
 
-- [ ] **TopesProcessor**: Vectorizar completamente categorías diferenciales (eliminar consultas individuales).
+- [x] **TopesProcessor**: Vectorizar completamente categorías diferenciales (eliminar consultas individuales).
+  - ✅ **Optimización implementada**: `_obtener_legajos_diferenciales_bulk()` hace consulta bulk única
+  - ✅ **Sin consultas individuales**: Usa operaciones vectorizadas de pandas
+  - ✅ **Rendimiento optimizado**: Eliminado problema N+1 de consultas
 - [x] **Configuración Categorías**: Permitir pasar categorías diferenciales desde configuración.

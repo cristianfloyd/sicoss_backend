@@ -4,15 +4,17 @@ Tests unitarios e integración para LicenciasExtractor
 Cobertura objetivo: >90%
 """
 
-import calendar
-from datetime import date
-from unittest.mock import Mock, patch
+import logging
+from unittest.mock import Mock
 
 import pandas as pd
 import pytest
 
 from extractors.licencias_extractor import LicenciasExtractor
 from value_objects.periodo_fiscal import PeriodoFiscal
+from extractors.base_extractor import DatabaseConnection
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # FIXTURES
@@ -20,7 +22,7 @@ from value_objects.periodo_fiscal import PeriodoFiscal
 
 
 @pytest.fixture
-def mock_db_connection():
+def mock_db_connection() -> Mock:
     """Mock de DatabaseConnection para tests unitarios"""
     mock_db = Mock()
     mock_db.execute_query.return_value = pd.DataFrame()
@@ -28,19 +30,19 @@ def mock_db_connection():
 
 
 @pytest.fixture
-def licencias_extractor(mock_db_connection):
+def licencias_extractor(mock_db_connection: Mock) -> LicenciasExtractor:
     """Instancia de LicenciasExtractor con mock de BD"""
     return LicenciasExtractor(mock_db_connection)
 
 
 @pytest.fixture
-def periodo_fiscal():
+def periodo_fiscal() -> PeriodoFiscal:
     """PeriodoFiscal de prueba"""
     return PeriodoFiscal(year=2024, month=12)
 
 
 @pytest.fixture
-def sample_licencias_df():
+def sample_licencias_df() -> pd.DataFrame:
     """DataFrame de ejemplo con licencias"""
     return pd.DataFrame(
         {
@@ -62,7 +64,9 @@ def sample_licencias_df():
 # ============================================================================
 
 
-def test_extract_for_legajos_lista_vacia(licencias_extractor, periodo_fiscal):
+def test_extract_for_legajos_lista_vacia(
+    licencias_extractor: LicenciasExtractor, periodo_fiscal: PeriodoFiscal
+) -> None:
     """Prueba cuando se pasa una lista vacía de legajos."""
     result = licencias_extractor.extract_for_legajos(
         periodo=periodo_fiscal, legajos_ids=[], variantes_vacaciones="1,2"
@@ -79,7 +83,9 @@ def test_extract_for_legajos_lista_vacia(licencias_extractor, periodo_fiscal):
     ]
 
 
-def test_extract_for_legajos_sin_variantes(licencias_extractor, periodo_fiscal):
+def test_extract_for_legajos_sin_variantes(
+    licencias_extractor: LicenciasExtractor, periodo_fiscal: PeriodoFiscal
+) -> None:
     """Prueba cuando no hay variantes configuradas."""
     result = licencias_extractor.extract_for_legajos(
         periodo=periodo_fiscal, legajos_ids=[1001, 1002]
@@ -97,8 +103,11 @@ def test_extract_for_legajos_sin_variantes(licencias_extractor, periodo_fiscal):
 
 
 def test_extract_for_legajos_con_variantes_vacaciones(
-    licencias_extractor, periodo_fiscal, sample_licencias_df, mock_db_connection
-):
+    licencias_extractor: LicenciasExtractor,
+    periodo_fiscal: PeriodoFiscal,
+    sample_licencias_df: pd.DataFrame,
+    mock_db_connection: Mock,
+) -> None:
     """Prueba extracción con variantes de vacaciones."""
     # Configurar mock para retornar datos de ejemplo
     mock_db_connection.execute_query.return_value = sample_licencias_df
@@ -122,8 +131,11 @@ def test_extract_for_legajos_con_variantes_vacaciones(
 
 
 def test_extract_for_legajos_con_variantes_protecintegral(
-    licencias_extractor, periodo_fiscal, sample_licencias_df, mock_db_connection
-):
+    licencias_extractor: LicenciasExtractor,
+    periodo_fiscal: PeriodoFiscal,
+    sample_licencias_df: pd.DataFrame,
+    mock_db_connection: Mock,
+) -> None:
     """Prueba extracción con variantes de protección integral."""
     mock_db_connection.execute_query.return_value = sample_licencias_df
 
@@ -138,8 +150,11 @@ def test_extract_for_legajos_con_variantes_protecintegral(
 
 
 def test_extract_for_legajos_con_ambas_variantes(
-    licencias_extractor, periodo_fiscal, sample_licencias_df, mock_db_connection
-):
+    licencias_extractor: LicenciasExtractor,
+    periodo_fiscal: PeriodoFiscal,
+    sample_licencias_df: pd.DataFrame,
+    mock_db_connection: Mock,
+) -> None:
     """Prueba extracción con ambas variantes configuradas."""
     mock_db_connection.execute_query.return_value = sample_licencias_df
 
@@ -157,8 +172,11 @@ def test_extract_for_legajos_con_ambas_variantes(
 
 
 def test_extract_for_legajos_tipos_datos_correctos(
-    licencias_extractor, periodo_fiscal, sample_licencias_df, mock_db_connection
-):
+    licencias_extractor: LicenciasExtractor,
+    periodo_fiscal: PeriodoFiscal,
+    sample_licencias_df: pd.DataFrame,
+    mock_db_connection: Mock,
+) -> None:
     """Prueba que los tipos de datos retornados son correctos."""
     mock_db_connection.execute_query.return_value = sample_licencias_df
 
@@ -176,8 +194,10 @@ def test_extract_for_legajos_tipos_datos_correctos(
 
 
 def test_extract_for_legajos_resultado_vacio_bd(
-    licencias_extractor, periodo_fiscal, mock_db_connection
-):
+    licencias_extractor: LicenciasExtractor,
+    periodo_fiscal: PeriodoFiscal,
+    mock_db_connection: Mock,
+) -> None:
     """Prueba cuando la BD retorna un DataFrame vacío."""
     mock_db_connection.execute_query.return_value = pd.DataFrame()
 
@@ -199,8 +219,10 @@ def test_extract_for_legajos_resultado_vacio_bd(
 
 
 def test_extract_for_legajos_manejo_errores(
-    licencias_extractor, periodo_fiscal, mock_db_connection
-):
+    licencias_extractor: LicenciasExtractor,
+    periodo_fiscal: PeriodoFiscal,
+    mock_db_connection: Mock,
+) -> None:
     """Prueba manejo de errores cuando la BD falla."""
     mock_db_connection.execute_query.side_effect = Exception("Error de conexión")
 
@@ -223,8 +245,10 @@ def test_extract_for_legajos_manejo_errores(
 
 
 def test_extract_for_legajos_resultado_no_dataframe(
-    licencias_extractor, periodo_fiscal, mock_db_connection
-):
+    licencias_extractor: LicenciasExtractor,
+    periodo_fiscal: PeriodoFiscal,
+    mock_db_connection: Mock,
+) -> None:
     """Prueba cuando execute_query retorna algo que no es DataFrame."""
     mock_db_connection.execute_query.return_value = None
 
@@ -239,8 +263,10 @@ def test_extract_for_legajos_resultado_no_dataframe(
 
 
 def test_extract_for_legajos_calculo_fechas_periodo(
-    licencias_extractor, sample_licencias_df, mock_db_connection
-):
+    licencias_extractor: LicenciasExtractor,
+    sample_licencias_df: pd.DataFrame,
+    mock_db_connection: Mock,
+) -> None:
     """Prueba que las fechas del período se calculan correctamente."""
     # Período de febrero (mes con 28/29 días)
     periodo_feb = PeriodoFiscal(year=2024, month=2)
@@ -259,8 +285,10 @@ def test_extract_for_legajos_calculo_fechas_periodo(
 
 
 def test_extract_for_legajos_mes_31_dias(
-    licencias_extractor, sample_licencias_df, mock_db_connection
-):
+    licencias_extractor: LicenciasExtractor,
+    sample_licencias_df: pd.DataFrame,
+    mock_db_connection: Mock,
+) -> None:
     """Prueba cálculo de fechas para mes de 31 días."""
     periodo_ene = PeriodoFiscal(year=2024, month=1)
     mock_db_connection.execute_query.return_value = sample_licencias_df
@@ -281,8 +309,11 @@ def test_extract_for_legajos_mes_31_dias(
 
 
 def test_extract_con_periodo_fiscal(
-    licencias_extractor, periodo_fiscal, sample_licencias_df, mock_db_connection
-):
+    licencias_extractor: LicenciasExtractor,
+    periodo_fiscal: PeriodoFiscal,
+    sample_licencias_df: pd.DataFrame,
+    mock_db_connection: Mock,
+) -> None:
     """Prueba extract() pasando PeriodoFiscal directamente."""
     mock_db_connection.execute_query.return_value = sample_licencias_df
 
@@ -297,8 +328,10 @@ def test_extract_con_periodo_fiscal(
 
 
 def test_extract_con_per_anoct_per_mesct(
-    licencias_extractor, sample_licencias_df, mock_db_connection
-):
+    licencias_extractor: LicenciasExtractor,
+    sample_licencias_df: pd.DataFrame,
+    mock_db_connection: Mock,
+) -> None:
     """Prueba extract() pasando per_anoct y per_mesct en lugar de PeriodoFiscal."""
     mock_db_connection.execute_query.return_value = sample_licencias_df
 
@@ -313,13 +346,17 @@ def test_extract_con_per_anoct_per_mesct(
     assert not result.empty
 
 
-def test_extract_sin_periodo_ni_fechas(licencias_extractor):
+def test_extract_sin_periodo_ni_fechas(
+    licencias_extractor: LicenciasExtractor,
+) -> None:
     """Prueba extract() sin período ni fechas (debe fallar)."""
     with pytest.raises(ValueError, match="Se requiere un objeto PeriodoFiscal"):
         licencias_extractor.extract(legajos_ids=[1001], variantes_vacaciones="1")
 
 
-def test_extract_con_periodo_invalido(licencias_extractor):
+def test_extract_con_periodo_invalido(
+    licencias_extractor: LicenciasExtractor,
+) -> None:
     """Prueba extract() con período inválido."""
     with pytest.raises(ValueError):
         licencias_extractor.extract(
@@ -336,15 +373,31 @@ def test_extract_con_periodo_invalido(licencias_extractor):
 
 
 @pytest.mark.integration
-def test_extract_for_legajos_integracion_bd_real(db_connection):
-    """Test de integración con BD real."""
+def test_extract_for_legajos_integracion_bd_real(db_connection: DatabaseConnection):
+    """Test de integración con BD real - limitado a 5 legajos para rapidez."""
     extractor = LicenciasExtractor(db_connection)
     periodo = PeriodoFiscal(year=2024, month=12)
 
-    # Intentar extraer para un legajo de prueba (puede no tener licencias)
+    # Obtener algunos legajos reales de la BD (limitado a 5 para test rápido)
+    query_legajos = """
+        SELECT DISTINCT nro_legaj 
+        FROM mapuche.dh01 
+        WHERE nro_legaj IS NOT NULL 
+        ORDER BY nro_legaj 
+        LIMIT 5
+    """
+    df_legajos = db_connection.execute_query(query_legajos)
+
+    if df_legajos.empty:
+        pytest.skip("No hay legajos en la BD para probar")
+
+    legajos_ids = df_legajos["nro_legaj"].tolist()[:5]  # Máximo 5 legajos
+    logger.info(f"Probando con {len(legajos_ids)} legajos: {legajos_ids}")
+
+    # Intentar extraer licencias (puede no tener licencias, pero debe funcionar)
     result = extractor.extract_for_legajos(
         periodo=periodo,
-        legajos_ids=[1001],  # Ajustar según datos reales
+        legajos_ids=legajos_ids,
         variantes_vacaciones="1,2,3",
         variantes_protecintegral="4,5,6",
     )
@@ -371,16 +424,35 @@ def test_extract_for_legajos_integracion_bd_real(db_connection):
         assert all(1 <= result["final"]) and all(result["final"] <= 31)
         assert all(result["inicio"] <= result["final"])
 
+        # Verificar que los legajos retornados están en la lista solicitada
+        assert all(result["nro_legaj"].isin(legajos_ids))
+
 
 @pytest.mark.integration
-def test_extract_integracion_bd_real(db_connection):
-    """Test de integración del método extract() con BD real."""
+def test_extract_integracion_bd_real(db_connection: DatabaseConnection):
+    """Test de integración del método extract() con BD real - limitado a 3 legajos."""
     extractor = LicenciasExtractor(db_connection)
+
+    # Obtener algunos legajos reales de la BD (limitado a 3 para test rápido)
+    query_legajos = """
+        SELECT DISTINCT nro_legaj 
+        FROM mapuche.dh01 
+        WHERE nro_legaj IS NOT NULL 
+        ORDER BY nro_legaj 
+        LIMIT 3
+    """
+    df_legajos = db_connection.execute_query(query_legajos)
+
+    if df_legajos.empty:
+        pytest.skip("No hay legajos en la BD para probar")
+
+    legajos_ids = df_legajos["nro_legaj"].tolist()[:3]  # Máximo 3 legajos
+    logger.info(f"Probando extract() con {len(legajos_ids)} legajos: {legajos_ids}")
 
     result = extractor.extract(
         per_anoct=2024,
         per_mesct=12,
-        legajos_ids=[1001],  # Ajustar según datos reales
+        legajos_ids=legajos_ids,
         variantes_vacaciones="1,2",
     )
 
@@ -393,6 +465,10 @@ def test_extract_integracion_bd_real(db_connection):
         "condicion",
     ]
 
+    # Si hay resultados, verificar que los legajos están en la lista solicitada
+    if not result.empty:
+        assert all(result["nro_legaj"].isin(legajos_ids))
+
 
 # ============================================================================
 # TESTS DE CASOS DE BORDE
@@ -400,7 +476,10 @@ def test_extract_integracion_bd_real(db_connection):
 
 
 def test_extract_for_legajos_muchos_legajos(
-    licencias_extractor, periodo_fiscal, sample_licencias_df, mock_db_connection
+    licencias_extractor: LicenciasExtractor,
+    periodo_fiscal: PeriodoFiscal,
+    sample_licencias_df: pd.DataFrame,
+    mock_db_connection: Mock,
 ):
     """Prueba con una lista grande de legajos."""
     muchos_legajos = list(range(1001, 1101))  # 100 legajos
@@ -420,7 +499,10 @@ def test_extract_for_legajos_muchos_legajos(
 
 
 def test_extract_for_legajos_variantes_string_largo(
-    licencias_extractor, periodo_fiscal, sample_licencias_df, mock_db_connection
+    licencias_extractor: LicenciasExtractor,
+    periodo_fiscal: PeriodoFiscal,
+    sample_licencias_df: pd.DataFrame,
+    mock_db_connection: Mock,
 ):
     """Prueba con string de variantes muy largo."""
     variantes_largas = ",".join(map(str, range(1, 51)))  # 50 variantes
@@ -440,7 +522,9 @@ def test_extract_for_legajos_variantes_string_largo(
 
 
 def test_extract_for_legajos_periodo_bisiesto(
-    licencias_extractor, sample_licencias_df, mock_db_connection
+    licencias_extractor: LicenciasExtractor,
+    sample_licencias_df: pd.DataFrame,
+    mock_db_connection: Mock,
 ):
     """Prueba con período de año bisiesto (febrero 2024)."""
     periodo_feb_2024 = PeriodoFiscal(year=2024, month=2)
@@ -459,7 +543,9 @@ def test_extract_for_legajos_periodo_bisiesto(
 
 
 def test_extract_for_legajos_periodo_no_bisiesto(
-    licencias_extractor, sample_licencias_df, mock_db_connection
+    licencias_extractor: LicenciasExtractor,
+    sample_licencias_df: pd.DataFrame,
+    mock_db_connection: Mock,
 ):
     """Prueba con período de año no bisiesto (febrero 2023)."""
     periodo_feb_2023 = PeriodoFiscal(year=2023, month=2)
@@ -478,7 +564,9 @@ def test_extract_for_legajos_periodo_no_bisiesto(
 
 
 def test_extract_for_legajos_condiciones_maternidad(
-    licencias_extractor, periodo_fiscal, mock_db_connection
+    licencias_extractor: LicenciasExtractor,
+    periodo_fiscal: PeriodoFiscal,
+    mock_db_connection: Mock,
 ):
     """Prueba que las condiciones de licencia se asignan correctamente."""
     # DataFrame con licencia de maternidad
@@ -504,7 +592,9 @@ def test_extract_for_legajos_condiciones_maternidad(
 
 
 def test_extract_for_legajos_es_legajo_true_false(
-    licencias_extractor, periodo_fiscal, mock_db_connection
+    licencias_extractor: LicenciasExtractor,
+    periodo_fiscal: PeriodoFiscal,
+    mock_db_connection: Mock,
 ):
     """Prueba que es_legajo puede ser True o False."""
     df_mixto = pd.DataFrame(
@@ -526,5 +616,5 @@ def test_extract_for_legajos_es_legajo_true_false(
 
     assert len(result) == 2
     assert result["es_legajo"].dtype == bool
-    assert result["es_legajo"].iloc[0] == True
-    assert result["es_legajo"].iloc[1] == False
+    assert result["es_legajo"].iloc[0]
+    assert not result["es_legajo"].iloc[1]

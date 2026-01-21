@@ -13,7 +13,7 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, Optional
+from typing import List, Optional, Tuple, TypedDict
 
 import pandas as pd
 
@@ -31,6 +31,20 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+class ResultadoComparacion(TypedDict):
+    """Estructura del resultado de comparación de archivos TXT"""
+
+    total_lineas: int
+    lineas_iguales: int
+    lineas_diferentes: int
+    lineas_faltantes_python: int
+    lineas_faltantes_php: int
+    porcentaje_coincidencia: float
+    detalles_diferencias: list[dict[str, int | str | list[str]]]
+    lineas_faltantes_python_detalle: list[Tuple[int, str]]
+    lineas_faltantes_php_detalle: list[Tuple[int, str]]
 
 
 class ExportadorTXT:
@@ -165,7 +179,7 @@ class ComparadorTXT:
 
     def comparar_archivos(
         self, archivo_python: str, archivo_php: str
-    ) -> Dict[str, Optional[str]]:
+    ) -> ResultadoComparacion:
         """
         Compara dos archivos TXT línea por línea
 
@@ -183,17 +197,21 @@ class ComparadorTXT:
         try:
             # Leer archivos
             with open(archivo_python, "r", encoding="latin1") as f:
-                lineas_python = [linea.rstrip("\r\n") for linea in f.readlines()]
+                lineas_python: list[str] = [
+                    linea.rstrip("\r\n") for linea in f.readlines()
+                ]
 
             with open(archivo_php, "r", encoding="latin1") as f:
-                lineas_php = [linea.rstrip("\r\n") for linea in f.readlines()]
+                lineas_php: list[str] = [
+                    linea.rstrip("\r\n") for linea in f.readlines()
+                ]
 
             # Comparar
-            total_lineas = max(len(lineas_python), len(lineas_php))
-            lineas_iguales = 0
-            lineas_diferentes = []
-            lineas_faltantes_python = []
-            lineas_faltantes_php = []
+            total_lineas: int = max(len(lineas_python), len(lineas_php))
+            lineas_iguales: int = 0
+            lineas_diferentes: list[dict[str, int | str | list[str]]] = []
+            lineas_faltantes_python: List[Tuple[int, str]] = []
+            lineas_faltantes_php: List[Tuple[int, str]] = []
 
             for i in range(total_lineas):
                 if i >= len(lineas_python):
@@ -204,14 +222,14 @@ class ComparadorTXT:
                     lineas_faltantes_php.append((i + 1, lineas_python[i]))
                     continue
 
-                linea_py = lineas_python[i]
-                linea_php = lineas_php[i]
+                linea_py: str = lineas_python[i]
+                linea_php: str = lineas_php[i]
 
                 if linea_py == linea_php:
                     lineas_iguales += 1
                 else:
-                    diferencias = self._analizar_diferencias_linea(
-                        linea_py, linea_php, i + 1
+                    diferencias: dict[str, int | str | list[str]] = (
+                        self._analizar_diferencias_linea(linea_py, linea_php, i + 1)
                     )
                     lineas_diferentes.append(diferencias)
 
@@ -220,7 +238,7 @@ class ComparadorTXT:
                 (lineas_iguales / total_lineas * 100) if total_lineas > 0 else 0
             )
 
-            resultado = {
+            resultado: ResultadoComparacion = {
                 "total_lineas": total_lineas,
                 "lineas_iguales": lineas_iguales,
                 "lineas_diferentes": len(lineas_diferentes),
@@ -251,14 +269,14 @@ class ComparadorTXT:
 
     def _analizar_diferencias_linea(
         self, linea_py: str, linea_php: str, numero_linea: int
-    ) -> Dict:
+    ) -> dict[str, int | str | list[str]]:
         """Analiza las diferencias entre dos líneas"""
-        diferencias_posiciones = []
+        diferencias_posiciones: list[str] = []
         longitud_min = min(len(linea_py), len(linea_php))
 
         for i in range(longitud_min):
             if linea_py[i] != linea_php[i]:
-                diferencias_posiciones.append(i)
+                diferencias_posiciones.append(str(i))
 
         # Si las longitudes son diferentes
         if len(linea_py) != len(linea_php):
@@ -361,7 +379,7 @@ def main():
         help="Archivo de salida para el reporte",
     )
 
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
 
     try:
         # Modo 1: Generar TXT desde refactor y comparar con PHP existente
